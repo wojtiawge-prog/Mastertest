@@ -1,54 +1,39 @@
-/* Master Plan — service worker (offline support) */
-const CACHE = "masterplan-v6";
-const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
-
-self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()).catch(() => {}));
-});
-
-self.addEventListener("activate", (e) => {
-  e.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)));
-    await self.clients.claim();
-  })());
-});
-
-// Cache-first for everything (incl. CDN modules); cache new responses at runtime so the app works offline after the first online load.
-self.addEventListener("fetch", (e) => {
-  const req = e.request;
-  if (req.method !== "GET") return;
-  // strona (index.html): najpierw sieć — nowa wersja od razu po otwarciu; offline → kopia z pamięci
-  const url = new URL(req.url);
-  const isPage = req.mode === "navigate" || (url.origin === location.origin && (url.pathname.endsWith("/") || url.pathname.endsWith("index.html") || url.pathname.endsWith("sw.js")));
-  if (isPage) {
-    e.respondWith((async () => {
-      try {
-        const res = await fetch(req, { cache: "no-store" });
-        if (res && res.ok) { const c = await caches.open(CACHE); c.put(req, res.clone()); }
-        return res;
-      } catch (err) {
-        return (await caches.match(req)) || (await caches.match("./index.html")) || Response.error();
-      }
-    })());
+const CACHE = "masterplan-v41";
+const SHELL = ["./", "./index.html", "./app.js", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
+self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
+self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
+self.addEventListener("fetch", e => {
+  if (e.request.method !== "GET") return;
+  const url = new URL(e.request.url);
+  // index.html, app.js, sw.js: najpierw sieć (nowa wersja od razu), offline → pamięć
+  if (e.request.mode === "navigate" || (url.origin === location.origin && /(\/|index\.html|app\.js|sw\.js)$/.test(url.pathname))) {
+    e.respondWith(fetch(e.request, { cache: "no-store" }).then(res => { if (res && res.status === 200) { const cp = res.clone(); caches.open(CACHE).then(c => c.put(e.request, cp)); } return res; })
+      .catch(() => caches.match(e.request).then(r => r || caches.match("./index.html"))));
     return;
   }
-  e.respondWith((async () => {
-    const cached = await caches.match(req);
-    if (cached) return cached;
-    try {
-      const res = await fetch(req);
-      if (res && (res.ok || res.type === "opaque")) {
-        const c = await caches.open(CACHE);
-        c.put(req, res.clone());
-      }
-      return res;
-    } catch (err) {
-      if (req.mode === "navigate") {
-        const fallback = await caches.match("./index.html");
-        if (fallback) return fallback;
-      }
-      throw err;
-    }
+  e.respondWith(caches.open(CACHE).then(cache =>
+    cache.match(e.request).then(cached => {
+      const net = fetch(e.request).then(res => { if (res && res.status === 200) cache.put(e.request, res.clone()); return res; }).catch(() => cached);
+      return cached || net;
+    })
+  ));
+});
+
+self.addEventListener("push", e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) { try { d = { body: e.data.text() }; } catch (e2) {} }
+  const title = d.title || "Druga Głowa 🧠";
+  const body = d.body || "Raport dnia czeka — otwórz i zobacz, na czym się dziś skupić.";
+  e.waitUntil(self.registration.showNotification(title, {
+    body, icon: "./icon-192.png", badge: "./icon-192.png", tag: "mp-briefing",
+    renotify: true, vibrate: [80, 40, 80], data: { url: "./" }
+  }));
+});
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  e.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const c of all) { if ("focus" in c) { try { c.postMessage({ type: "open-briefing" }); } catch (er) {} return c.focus(); } }
+    if (self.clients.openWindow) return self.clients.openWindow("./");
   })());
 });
