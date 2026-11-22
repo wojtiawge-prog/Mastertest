@@ -1,5 +1,5 @@
 /* Master Plan — service worker (offline support) */
-const CACHE = "masterplan-v4";
+const CACHE = "masterplan-v5";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
