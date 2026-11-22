@@ -1,5 +1,5 @@
 /* Master Plan — service worker (offline support) */
-const CACHE = "masterplan-v5";
+const CACHE = "masterplan-v6";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", (e) => {
@@ -18,6 +18,21 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
+  // strona (index.html): najpierw sieć — nowa wersja od razu po otwarciu; offline → kopia z pamięci
+  const url = new URL(req.url);
+  const isPage = req.mode === "navigate" || (url.origin === location.origin && (url.pathname.endsWith("/") || url.pathname.endsWith("index.html") || url.pathname.endsWith("sw.js")));
+  if (isPage) {
+    e.respondWith((async () => {
+      try {
+        const res = await fetch(req, { cache: "no-store" });
+        if (res && res.ok) { const c = await caches.open(CACHE); c.put(req, res.clone()); }
+        return res;
+      } catch (err) {
+        return (await caches.match(req)) || (await caches.match("./index.html")) || Response.error();
+      }
+    })());
+    return;
+  }
   e.respondWith((async () => {
     const cached = await caches.match(req);
     if (cached) return cached;
