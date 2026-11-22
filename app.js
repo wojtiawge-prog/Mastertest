@@ -192,7 +192,7 @@ const SEED_SUPPS = [
     { id: "s_mag", name: "Magnez (glicynian)", dose: "400 mg", when: "Wieczór" },
     { id: "s_ashwa", name: "Ashwagandha KSM-66", dose: "600 mg", when: "Wieczór" },
 ];
-const SYNC_KEYS = ["mp_profile_v1", "mp_habits_v1", "mp_supps_v1", "mp_daily_v4", "mp_tasks_v1", "mp_finance_v1", "mp_events_v1", "mp_diet_v1", "mp_shopping_v1", "mp_saas_v1", "mp_measures_v1", "mp_books_v1", "mp_prs_v1", "mp_review_v1", "mp_medi_v1", "mp_voice_v1", "mp_blood_v1", "mp_charisma_v1", "mp_journal_v1", "mp_bizplan_v1", "mp_trades_v1", "mp_rest_v1"];
+const SYNC_KEYS = ["mp_profile_v1", "mp_habits_v1", "mp_supps_v1", "mp_daily_v4", "mp_tasks_v1", "mp_finance_v1", "mp_events_v1", "mp_diet_v1", "mp_shopping_v1", "mp_saas_v1", "mp_measures_v1", "mp_books_v1", "mp_prs_v1", "mp_review_v1", "mp_medi_v1", "mp_voice_v1", "mp_blood_v1", "mp_charisma_v1", "mp_journal_v1", "mp_bizplan_v1", "mp_trades_v1", "mp_rest_v1", "mp_gate_v1"];
 const SYNC_SQL = `create table if not exists mp_state (
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
   key text not null,
@@ -1346,7 +1346,7 @@ export default function App() {
     useEffect(() => {
         if (!ready)
             return;
-        const map = { mp_profile_v1: setProfile, mp_habits_v1: setHabits, mp_supps_v1: setSupps, mp_daily_v4: setDaily, mp_tasks_v1: setTasks, mp_finance_v1: setFinance, mp_events_v1: setEvents, mp_diet_v1: (v) => setDiet({ ...SEED_DIET, ...v }), mp_shopping_v1: setShopping, mp_saas_v1: setSaasData, mp_measures_v1: setMeasures, mp_books_v1: setBooks, mp_prs_v1: setPrs, mp_review_v1: setWeekFocus, mp_medi_v1: setMedi, mp_voice_v1: setVoiceLog, mp_blood_v1: setBloodLog, mp_charisma_v1: setCharisma, mp_journal_v1: setJournal, mp_bizplan_v1: setBizplan, mp_trades_v1: (v) => setTrades({ ...SEED_TRADES, ...v }), mp_rest_v1: (v) => restStore.replace(v) };
+        const map = { mp_profile_v1: setProfile, mp_habits_v1: setHabits, mp_supps_v1: setSupps, mp_daily_v4: setDaily, mp_tasks_v1: setTasks, mp_finance_v1: setFinance, mp_events_v1: setEvents, mp_diet_v1: (v) => setDiet({ ...SEED_DIET, ...v }), mp_shopping_v1: setShopping, mp_saas_v1: setSaasData, mp_measures_v1: setMeasures, mp_books_v1: setBooks, mp_prs_v1: setPrs, mp_review_v1: setWeekFocus, mp_medi_v1: setMedi, mp_voice_v1: setVoiceLog, mp_blood_v1: setBloodLog, mp_charisma_v1: setCharisma, mp_journal_v1: setJournal, mp_bizplan_v1: setBizplan, mp_trades_v1: (v) => setTrades({ ...SEED_TRADES, ...v }), mp_rest_v1: (v) => restStore.replace(v), mp_gate_v1: (v) => gateStore.replace(v) };
         sync.onRemote = (k, v) => { if (v != null && map[k]) map[k](v); };
         sync.init();
     }, [ready]);
@@ -1519,7 +1519,7 @@ export default function App() {
             React.createElement(Toast, { toast: toast, onClose: () => setToast(null), onGo: () => { if (toast && toast.icon === "piggy")
                     setTab("money"); setToast(null); } }),
             React.createElement("div", { key: tab, className: "mp-content", style: { animation: "fade .25s ease", padding: "0 16px" } },
-                tab === "home" && React.createElement(Home, { profile, setProfile, habits, supps, day, daily, tasks, finance, diet, toggleHabit, setTab, resetStats, journal, setJournal }),
+                tab === "home" && React.createElement(Home, { profile, setProfile, habits, supps, day, daily, tasks, finance, diet, toggleHabit, setTab, resetStats, journal, setJournal, setDay }),
                 tab === "rozwoj" && React.createElement(DevHub, { setTab, profile, daily, habits, measures, medi, voiceLog, books, prs, diet }),
                 tab === "cal" && React.createElement(Calendar, { events, setEvents, daily, habits, finance, profile, setProfile, setToast }),
                 tab === "tasks" && React.createElement(Tasks, { tasks, setTasks }),
@@ -1544,7 +1544,8 @@ export default function App() {
                 tab === "glos" && React.createElement(VoicePosture, { voiceLog: voiceLog, setVoiceLog: setVoiceLog }),
                 tab === "looksmax" && React.createElement(Looksmax, null),
                 tab === "bizplan" && React.createElement(BiznesPlan, { bizplan: bizplan, setBizplan: setBizplan }),
-                tab === "trade" && React.createElement(Trading, { trades, setTrades })),
+                tab === "trade" && React.createElement(Trading, { trades, setTrades }),
+                tab === "brama" && React.createElement(ExitGate, { finance })),
             timer.running && tab !== "train" && (React.createElement("div", { onClick: () => setTab("train"), style: {
                     position: "fixed", bottom: 84, left: "50%", transform: "translateX(-50%)", zIndex: 40,
                     display: "flex", alignItems: "center", gap: 10, padding: "9px 16px", borderRadius: 99,
@@ -1612,7 +1613,7 @@ export default function App() {
             })))));
 }
 /* ───────────────────────── HOME / DASHBOARD ───────────────────────── */
-function Home({ profile, setProfile, habits, supps, day, daily, tasks, finance, diet, toggleHabit, setTab, resetStats, journal, setJournal }) {
+function Home({ profile, setProfile, habits, supps, day, daily, tasks, finance, diet, toggleHabit, setTab, resetStats, journal, setJournal, setDay }) {
     const [wOpen, setWOpen] = useState(false);
     const [wVal, setWVal] = useState(profile.weight);
     const [setOpen, setSetOpen] = useState(false);
@@ -1769,7 +1770,7 @@ function Home({ profile, setProfile, habits, supps, day, daily, tasks, finance, 
     const quote = QUOTES[(new Date().getFullYear() * 366 + dayOfYear()) % QUOTES.length];
     /* forma dnia — jedna liczba */
     const _calT = (() => { const b = 10 * profile.weight + 6.25 * profile.height - 5 * ((diet && diet.age) || 25) + (((diet && diet.sex) || "m") === "m" ? 5 : -161); const ff = (ACT_OPTS.find((a) => a.k === (diet && diet.activity)) || { f: 1.55 }).f; return Math.round(b * ff + ((diet && diet.surplus) || 0)); })();
-    const _kcalToday = (day.food || []).reduce((a, x) => a + (x.kcal || 0), 0);
+    const _kcalToday = (day.food || []).reduce((a, x) => a + (x.kcal || 0), 0) + evalPlanDay(todayKey(), day, dietMultOf(diet)).eaten.kcal;
     const _sleepH = parseFloat(day.sleep && day.sleep.h) || 0;
     const _ratio = _calT ? _kcalToday / _calT : 0;
     const scNut = (day.food && day.food.length) ? (_ratio <= 1 ? _ratio : Math.max(0, 1 - (_ratio - 1))) : null;
@@ -1797,6 +1798,7 @@ function Home({ profile, setProfile, habits, supps, day, daily, tasks, finance, 
                     React.createElement("span", { style: { fontFamily: "var(--display)", fontWeight: 800, fontSize: 15 } }, streak)),
                 React.createElement("button", { onClick: () => setSetOpen(true), style: { ...iconBtn, position: "relative" }, "aria-label": "Ustawienia" }, React.createElement(SyncDot, null),
                     React.createElement(Settings, { size: 18 })))),
+        React.createElement(WinDayCard, { daily, day, setDay, habits, diet }),
         React.createElement(Card, { style: { marginTop: 18, display: "flex", alignItems: "center", gap: 18, position: "relative", overflow: "hidden" } },
             dayPct === 100 && React.createElement("div", { style: { position: "absolute", inset: 0, background: "radial-gradient(120px 80px at 22% 50%, var(--green-glow), transparent)", animation: "pulse 2s ease-in-out infinite" } }),
             React.createElement(Ring, { pct: dayPct, glow: dayPct === 100, color: dayPct === 100 ? "var(--gold)" : "var(--green)" },
@@ -3824,6 +3826,136 @@ const shopCatFor = (finance, it) => {
   return (other || food || cats[0] || {}).id || null;
 };
 const shopTxNote = (it) => "Zakupy · " + it.name.replace(/^📋\s*/, "").replace(/\s*\(.*\)\s*$/, "") + (it.store ? " (" + it.store + ")" : "");
+
+const lsJSON = (k, fb) => {
+  try {
+    const v = localStorage.getItem(k);
+    return v ? JSON.parse(v) : fb;
+  } catch {
+    return fb;
+  }
+};
+const dietMultOf = (diet) => (STAGES.find((x) => x.k === (diet && diet.stage || 1)) || STAGES[0]).mult;
+const tradePnl = (t, accs) => {
+  const a = (accs || []).find((x) => x.id === t.acc);
+  const c = tradeCalc(t);
+  return a && c.R != null ? c.R * (c.riskPct / 100) * a.size : 0;
+};
+const winEval = (key, rec, habits, diet, trades) => {
+  rec = rec || {};
+  const hb = habits || [];
+  const habPct = hb.length ? hb.filter((h) => rec.habits && rec.habits[h.id]).length / hb.length : 0;
+  const pe = evalPlanDay(key, rec, dietMultOf(diet));
+  const offPlan = (trades && trades.trades || []).filter((t) => t.date === key && !t.planned).length;
+  const conds = [
+    { id: "train", label: rec.restDay ? "Dzie\u0144 regeneracji" : "Trening z kolejki", ok: !!rec.workoutDone || !!rec.restDay, tap: true },
+    { id: "diet", label: `Zasady diety ${pe.passed}/${pe.rules.length}`, ok: pe.passed === pe.rules.length },
+    { id: "habits", label: `Nawyki ${Math.round(habPct * 100)}% (min. 80%)`, ok: habPct >= 0.8 },
+    { id: "trade", label: offPlan ? `${offPlan} trade poza planem` : "Zero trade'\xF3w poza planem", ok: offPlan === 0 }
+  ];
+  return { conds, won: conds.every((c) => c.ok), n: conds.filter((c) => c.ok).length };
+};
+function WinDayCard({ daily, day, setDay, habits, diet }) {
+  const trades = lsJSON("mp_trades_v1", { trades: [] });
+  const tk = todayKey();
+  const ev = winEval(tk, day, habits, diet, trades);
+  let streak = 0;
+  {
+    let d = /* @__PURE__ */ new Date(tk + "T12:00:00");
+    if (!ev.won) d.setDate(d.getDate() - 1);
+    for (let i = 0; i < 400; i++) {
+      const k = keyOf(d);
+      if (!daily[k] || !winEval(k, daily[k], habits, diet, trades).won) break;
+      streak++;
+      d.setDate(d.getDate() - 1);
+    }
+  }
+  return /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 14, border: ev.won ? "1px solid rgba(245,181,61,.55)" : void 0, background: ev.won ? "linear-gradient(135deg, rgba(245,181,61,.10), var(--surface))" : void 0 }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 800, fontSize: 16 } }, ev.won ? "\u{1F3C6} Dzie\u0144 wygrany" : "Dzie\u0144 wygrany?"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 2 } }, ev.n, "/", ev.conds.length, " warunk\xF3w \xB7 seria ", streak, " ", streak === 1 ? "dzie\u0144" : "dni")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 800, fontSize: 26, color: ev.won ? "var(--gold2)" : "var(--faint)" } }, "\u{1F525}", streak)), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, ev.conds.map((c) => /* @__PURE__ */ React.createElement("div", { key: c.id, onClick: c.tap && !day.workoutDone ? () => {
+    buzz(8);
+    setDay((x) => ({ ...x, restDay: !x.restDay }));
+  } : void 0, style: { display: "flex", alignItems: "center", gap: 10, padding: "6px 0", cursor: c.tap && !day.workoutDone ? "pointer" : "default" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 20, height: 20, borderRadius: 6, display: "grid", placeItems: "center", background: c.ok ? "var(--green)" : "var(--surface2)", border: c.ok ? "none" : "1px solid var(--line2)" } }, c.ok ? /* @__PURE__ */ React.createElement(Check, { size: 13, color: "#04130a", strokeWidth: 3 }) : null), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, fontSize: 13, fontWeight: 600, color: c.ok ? "var(--text)" : "var(--muted)" } }, c.label), c.tap && !day.workoutDone && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--faint)" } }, day.restDay ? "cofnij" : "dzie\u0144 wolny?")))));
+}
+const SEED_GATE = { savings: "", costs: "", months: 12, eurPerUsd: 0.92, split: 80, live: false };
+const gateStore = {
+  v: lsJSON("mp_gate_v1", SEED_GATE),
+  subs: /* @__PURE__ */ new Set(),
+  set(p) {
+    this.v = { ...this.v, ...p };
+    save("mp_gate_v1", this.v);
+    this.subs.forEach((f) => f(this.v));
+  },
+  replace(v) {
+    this.v = { ...SEED_GATE, ...v || {} };
+    this.subs.forEach((f) => f(this.v));
+  }
+};
+function ExitGate({ finance }) {
+  const [g, setG] = useState(gateStore.v);
+  useEffect(() => {
+    gateStore.subs.add(setG);
+    return () => gateStore.subs.delete(setG);
+  }, []);
+  const T = lsJSON("mp_trades_v1", { trades: [], accounts: [] });
+  const costs = num(g.costs) || Math.round(finance.capital || 0);
+  const savings = num(g.savings) != null ? num(g.savings) : Math.round(finance.vault || 0);
+  const runway = costs ? savings / costs : 0;
+  const now = /* @__PURE__ */ new Date(todayKey() + "T12:00:00");
+  const months = [3, 2, 1].map((i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+  });
+  const perMonth = months.map((m) => {
+    const usdV = (T.trades || []).filter((t) => t.status === "closed" && (t.closedAt || t.date || "").slice(0, 7) === m).reduce((s, t) => s + tradePnl(t, T.accounts), 0);
+    return { m, eur: usdV * (num(g.eurPerUsd) || 0.92) * ((num(g.split) || 80) / 100) };
+  });
+  const avg = perMonth.reduce((s, x) => s + x.eur, 0) / 3;
+  const allPositive = perMonth.every((x) => x.eur > 0);
+  const pRun = Math.min(100, runway / (num(g.months) || 12) * 100);
+  const pInc = costs ? Math.min(100, Math.max(0, avg / costs * 100)) : 0;
+  const ready = pRun >= 100 && pInc >= 100 && allPositive && g.live;
+  const inp = { ...inputStyle, padding: "9px 10px", fontSize: 14, fontWeight: 700 };
+  const lbl = { fontSize: 11.5, color: "var(--muted)", display: "block", marginBottom: 4 };
+  const eurF = (n) => "\u20AC" + Math.round(n).toLocaleString("pl-PL");
+  const mName = (m) => ["sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "pa\u017A", "lis", "gru"][parseInt(m.slice(5)) - 1];
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("header", { style: { paddingTop: 26 } }, /* @__PURE__ */ React.createElement("h1", { style: { margin: 0, fontFamily: "var(--display)", fontSize: 27, fontWeight: 800, letterSpacing: "-.03em" } }, "Brama wyj\u015Bcia \u{1F6AA}"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--muted)", fontSize: 13, marginTop: 2 } }, "Odchodzisz z Mauser, gdy dane \u2014 nie emocje \u2014 m\xF3wi\u0105 \u201Etak\u201D")), /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 16, textAlign: "center", border: ready ? "1px solid var(--green)" : void 0 }, pad: 18 }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--muted)" } }, "Status"), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 800, fontSize: 22, marginTop: 4, color: ready ? "var(--green2)" : "var(--gold2)" } }, ready ? "Warunki spe\u0142nione" : `${Math.round((pRun + pInc) / 2)}% drogi`), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--faint)", marginTop: 6 } }, ready ? "Podejmij decyzj\u0119 na spokojnie, po jednej nocy snu." : "Wszystkie 4 warunki musz\u0105 by\u0107 zielone jednocze\u015Bnie.")), [
+    { t: `1 \xB7 Poduszka: ${runway.toFixed(1)} / ${num(g.months) || 12} mies. koszt\xF3w`, p: pRun, ok: pRun >= 100, sub: `${eurF(savings)} oszcz\u0119dno\u015Bci \xB7 koszty ${eurF(costs)}/mies.` },
+    { t: "2 \xB7 Trading: \u015Brednia z 3 mies. \u2265 koszty", p: pInc, ok: pInc >= 100, sub: `${eurF(avg)}/mies. netto (po podziale ${num(g.split) || 80}%) vs ${eurF(costs)}` }
+  ].map((r) => /* @__PURE__ */ React.createElement(Card, { key: r.t, style: { marginTop: 10 }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 13.5, fontWeight: 700 } }, /* @__PURE__ */ React.createElement("span", null, r.t), /* @__PURE__ */ React.createElement("span", { style: { color: r.ok ? "var(--green2)" : "var(--muted)" } }, Math.round(r.p), "%")), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, /* @__PURE__ */ React.createElement(Bar, { pct: r.p, color: r.ok ? "var(--green)" : "var(--gold)" })), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 6 } }, r.sub))), /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 10 }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 13.5, fontWeight: 700 } }, /* @__PURE__ */ React.createElement("span", null, "3 \xB7 Ka\u017Cdy z 3 miesi\u0119cy na plusie"), /* @__PURE__ */ React.createElement("span", { style: { color: allPositive ? "var(--green2)" : "var(--muted)" } }, allPositive ? "\u2713" : "\u2717")), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginTop: 8 } }, perMonth.map((x) => /* @__PURE__ */ React.createElement("div", { key: x.m, style: { background: "var(--surface2)", borderRadius: 10, padding: "8px", textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--muted)" } }, mName(x.m)), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 800, color: x.eur > 0 ? "var(--green2)" : x.eur < 0 ? "var(--red)" : "var(--faint)" } }, eurF(x.eur)))))), /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 10 }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { onClick: () => gateStore.set({ live: !g.live }), style: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer" } }, /* @__PURE__ */ React.createElement(CheckBox, { on: !!g.live }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13.5, fontWeight: 700 } }, "4 \xB7 System zweryfikowany na realnym koncie"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 2 } }, "Wyp\u0142aty z prop firm / ma\u0142y realny rachunek \u2014 nie tylko backtest")))), /* @__PURE__ */ React.createElement("div", { style: sectionTitle }, "Ustawienia"), /* @__PURE__ */ React.createElement(Card, { pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } }, /* @__PURE__ */ React.createElement("label", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Oszcz\u0119dno\u015Bci \u20AC (puste = skarbonka)"), /* @__PURE__ */ React.createElement("input", { inputMode: "decimal", style: inp, value: g.savings, placeholder: String(Math.round(finance.vault || 0)), onChange: (e) => gateStore.set({ savings: e.target.value }) })), /* @__PURE__ */ React.createElement("label", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Koszty \u017Cycia \u20AC/mies."), /* @__PURE__ */ React.createElement("input", { inputMode: "decimal", style: inp, value: g.costs, placeholder: String(Math.round(finance.capital || 0)), onChange: (e) => gateStore.set({ costs: e.target.value }) })), /* @__PURE__ */ React.createElement("label", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Ile miesi\u0119cy poduszki"), /* @__PURE__ */ React.createElement("input", { inputMode: "numeric", style: inp, value: g.months, onChange: (e) => gateStore.set({ months: e.target.value }) })), /* @__PURE__ */ React.createElement("label", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Tw\xF3j podzia\u0142 zysku prop %"), /* @__PURE__ */ React.createElement("input", { inputMode: "numeric", style: inp, value: g.split, onChange: (e) => gateStore.set({ split: e.target.value }) })), /* @__PURE__ */ React.createElement("label", null, /* @__PURE__ */ React.createElement("span", { style: lbl }, "Kurs \u20AC za 1 $"), /* @__PURE__ */ React.createElement("input", { inputMode: "decimal", style: inp, value: g.eurPerUsd, onChange: (e) => gateStore.set({ eurPerUsd: e.target.value }) }))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--faint)", marginTop: 10, lineHeight: 1.45 } }, "Doch\xF3d z tradingu liczony z zamkni\u0119tych trade'\xF3w w dzienniku (zak\u0142adka Trading), z ryzykiem % i wielko\u015Bci\u0105 konta. Pami\u0119taj o dziecku w bud\u017Cecie koszt\xF3w.")));
+}
+const dgExtraLines = (daily, diet) => {
+  const L = [];
+  try {
+    const mult = dietMultOf(diet);
+    const days = [];
+    {
+      const t = /* @__PURE__ */ new Date(todayKey() + "T12:00:00");
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(t);
+        d.setDate(t.getDate() - i);
+        days.push(keyOf(d));
+      }
+    }
+    const evs = days.map((k) => evalPlanDay(k, daily[k], mult));
+    const full = evs.filter((e) => e.passed === e.rules.length).length;
+    const tEv = evs[evs.length - 1];
+    L.push(`PLAN DIETY (2 posilki + koktajl, tluszcz >50%, etap ${diet && diet.stage || 1}): dzis zasady ${tEv.passed}/${tEv.rules.length} (${tEv.rules.filter((r) => !r.ok).map((r) => r.label).join("; ") || "komplet"}), zjedzone z planu ${Math.round(tEv.eaten.kcal)}/${Math.round(tEv.planned.kcal)} kcal. Dni z kompletem zasad w 7 dni: ${full}/7.`);
+    L.push(`TRENING: plan PPL (Push/Pull/Legs + mobilnosc, szyja, przedramiona). Nastepny w kolejce: ${(WORKOUTS_PPL.find((w2) => w2.id === nextPPL(daily)) || {}).short}.`);
+    const T = lsJSON("mp_trades_v1", null);
+    if (T && (T.trades || []).length) {
+      const since = days[0];
+      const cl = T.trades.filter((t) => t.status === "closed");
+      const last30 = cl.filter((t) => (t.closedAt || t.date) >= keyOf(new Date(Date.now() - 30 * 864e5)));
+      const Rs = last30.map((t) => tradeCalc(t).R).filter((r) => r != null);
+      const off = T.trades.filter((t) => t.date >= since && !t.planned).length;
+      L.push(`TRADING (zloto, swing, R:R min 1:7, konta prop): 30 dni ${Rs.length} zamknietych, suma ${Rs.reduce((a, b) => a + b, 0).toFixed(1)}R, WR ${Rs.length ? Math.round(Rs.filter((r) => r > 0).length / Rs.length * 100) : 0}%. Trade'y poza planem (7 dni): ${off}. Otwarte: ${T.trades.filter((t) => t.status !== "closed").length}.`);
+    }
+    const tk = todayKey();
+    const w = winEval(tk, daily[tk], lsJSON("mp_habits_v1", []), diet, T);
+    L.push(`DZIEN WYGRANY dzis: ${w.n}/${w.conds.length} (${w.conds.filter((c) => !c.ok).map((c) => c.label).join("; ") || "komplet"}).`);
+  } catch (e) {
+  }
+  return L;
+};
 
 /* ───────────────────────── DIET / FITATU-STYLE ───────────────────────── */
 const SEED_DIET = { age: 25, sex: "m", activity: "mod", surplus: 400, proteinPerKg: 2.0, fatPerKg: 0.9 };
@@ -6631,7 +6763,7 @@ function DrugaGlowa({ profile, daily, habits, measures, finance, diet, books, pr
         const trainDays = days.filter((k) => daily[k] && daily[k].workoutDone).length;
         L.push(`Ostatnie 7 dni: nawyki srednio ${habAvg}%, treningi ${trainDays}.`);
         const today = daily[keyOf(new Date())] || {};
-        const kcalToday = (today.food || []).reduce((a, x) => a + (x.kcal || 0), 0);
+        const kcalToday = (today.food || []).reduce((a, x) => a + (x.kcal || 0), 0) + evalPlanDay(keyOf(new Date()), today, dietMultOf(diet)).eaten.kcal;
         const bmr = 10 * profile.weight + 6.25 * profile.height - 5 * ((diet && diet.age) || 25) + (((diet && diet.sex) || "m") === "m" ? 5 : -161);
         const ff = (ACT_OPTS.find((a) => a.k === (diet && diet.activity)) || { f: 1.55 }).f;
         const calT = Math.round(bmr * ff + ((diet && diet.surplus) || 0));
@@ -6659,6 +6791,7 @@ function DrugaGlowa({ profile, daily, habits, measures, finance, diet, books, pr
         const jk3 = Object.keys(journal || {}).filter((k) => journal[k] && (journal[k].text || "").trim()).sort().reverse().slice(0, 3);
         if (jk3.length)
             L.push("DZIENNIK DNIA (ostatnie wpisy usera): " + jk3.map((k) => k + ": " + (journal[k].text || "").replace(/\s+/g, " ").slice(0, 160)).join(" || "));
+        dgExtraLines(daily, diet).forEach((x) => L.push(x));
         if ((books || []).length)
             L.push(`Ksiazki: ${books.length} pozycji na liscie.`);
         if ((weekFocus || []).length)
@@ -7255,6 +7388,7 @@ function DevHub({ setTab, profile, daily, habits, measures, medi, voiceLog, book
         { e: "🗣️", n: "Charyzma", s: "Rozmowy i wpływ", t: "charisma", c: "192,132,252" },
         { e: "🎙️", n: "Głos & postawa", s: vStreak ? `🔥 ${vStreak} dni z rzędu` : "Mowa i sylwetka", t: "glos", c: "45,212,191" },
         { e: "🧘", n: "Medytacja", s: mStreak ? `🔥 ${mStreak} dni z rzędu` : "Ostrość umysłu", t: "medytacja", c: "250,204,21" },
+        { e: "🚪", n: "Brama wyjścia", s: "Warunki odejścia z Mauser", t: "brama", c: "250,204,21" },
         { e: "📈", n: "Trading", s: "Dziennik tradów · konta prop", t: "trade", c: "34,197,94" },
         { e: "📚", n: "Czytanie", s: `${bc} ${bc === 1 ? "pozycja" : "pozycji"}`, t: "books", c: "251,146,60" },
     ];
