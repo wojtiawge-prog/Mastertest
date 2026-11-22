@@ -596,12 +596,12 @@ function Card({ children, style, onClick, pad = 16 }) {
 function Sheet({ open, onClose, title, children }) {
     if (!open)
         return null;
-    return (React.createElement("div", { onClick: onClose, style: {
+    return (React.createElement("div", { onClick: onClose, className: "mp-sheet-wrap", style: {
             position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,.55)",
             backdropFilter: "blur(3px)", display: "flex", alignItems: "flex-end", justifyContent: "center",
             animation: "fade .2s ease",
         } },
-        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: {
+        React.createElement("div", { onClick: (e) => e.stopPropagation(), className: "mp-sheet", style: {
                 width: "100%", maxWidth: 460, background: "var(--bg2)", borderTopLeftRadius: 26, borderTopRightRadius: 26,
                 border: "1px solid var(--line)", borderBottom: "none", padding: "10px 18px 26px",
                 animation: "slideUp .28s cubic-bezier(.2,.9,.2,1)", maxHeight: "85vh", overflowY: "auto",
@@ -880,11 +880,11 @@ function App() {
     ];
     return (React.createElement("div", { style: rootBase },
         React.createElement("style", null, CSS),
-        React.createElement("div", { className: "mp-root", style: { minHeight: "100vh", maxWidth: 460, margin: "0 auto", position: "relative", paddingBottom: 96 } },
+        React.createElement("div", { className: "mp-root mp-shell", style: { minHeight: "100vh", maxWidth: 460, margin: "0 auto", position: "relative", paddingBottom: 96 } },
             React.createElement("div", { className: "grain" }),
             React.createElement(Toast, { toast: toast, onClose: () => setToast(null), onGo: () => { if (toast && toast.icon === "piggy")
                     setTab("money"); setToast(null); } }),
-            React.createElement("div", { key: tab, style: { animation: "fade .25s ease", padding: "0 16px" } },
+            React.createElement("div", { key: tab, className: "mp-content", style: { animation: "fade .25s ease", padding: "0 16px" } },
                 tab === "home" && React.createElement(Home, { profile, setProfile, habits, supps, day, daily, tasks, finance, toggleHabit, setTab }),
                 tab === "cal" && React.createElement(Calendar, { events, setEvents, daily, habits, finance, profile, setProfile }),
                 tab === "tasks" && React.createElement(Tasks, { tasks, setTasks }),
@@ -905,7 +905,7 @@ function App() {
                     ":",
                     pad(timer.left % 60)),
                 React.createElement("span", { style: { fontSize: 12, color: "var(--muted)" } }, timer.label))),
-            React.createElement("nav", { style: {
+            React.createElement("nav", { className: "mp-nav", style: {
                     position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, maxWidth: 460, margin: "0 auto",
                     background: "rgba(10,12,17,.82)", backdropFilter: "blur(16px)", borderTop: "1px solid var(--line)",
                     display: "grid", gridTemplateColumns: "repeat(8,1fr)", padding: "8px 0 calc(8px + env(safe-area-inset-bottom))",
@@ -2922,6 +2922,21 @@ const CSS = `
 @keyframes pop{0%{transform:scale(.3);}100%{transform:scale(1);}}
 @keyframes pulse{0%,100%{opacity:.5;}50%{opacity:1;}}
 @keyframes dropIn{from{opacity:0;transform:translate(-50%,-16px);}to{opacity:1;transform:translate(-50%,0);}}
+
+/* ── laptop / desktop: boczne menu, szersza treść, bez ucinania ── */
+@media (min-width: 900px){
+  .mp-shell{max-width:1180px !important; padding-left:236px !important; padding-bottom:48px !important;}
+  .mp-content{max-width:880px; padding:0 28px !important;}
+  .mp-nav{top:0 !important; bottom:0 !important; right:auto !important; left:max(0px, calc(50% - 590px)) !important; width:220px; max-width:none !important; margin:0 !important;
+    grid-template-columns:1fr !important; align-content:start; gap:4px; padding:30px 12px !important; border-top:none !important; border-right:1px solid var(--line); background:rgba(10,12,17,.6) !important;}
+  .mp-nav::before{content:"MASTER PLAN"; display:block; font-family:var(--display); font-weight:800; font-size:20px; letter-spacing:-.02em; color:var(--text); padding:0 14px 22px;}
+  .mp-nav button{flex-direction:row !important; justify-content:flex-start; gap:12px !important; padding:11px 14px !important; border-radius:12px;}
+  .mp-nav button span{font-size:14px !important;}
+  .mp-nav button:hover{background:var(--surface) !important;}
+  .mp-root .noscroll[style*="overflow-x"]{flex-wrap:wrap !important; overflow:visible !important; margin-left:0 !important; margin-right:0 !important; padding-left:0 !important; padding-right:0 !important;}
+  .mp-sheet-wrap{align-items:center !important;}
+  .mp-sheet{max-width:600px !important; border-radius:22px !important; border-bottom:1px solid var(--line) !important; max-height:88vh !important;}
+}
 input::placeholder{color:var(--faint);}
 input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0;}
 `;
