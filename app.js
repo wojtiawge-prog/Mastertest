@@ -1236,7 +1236,7 @@ export default function App() {
             if (di)
                 setDiet({ ...SEED_DIET, ...di });
             if (sh)
-                setShopping({ stores: sh.stores && sh.stores.length ? sh.stores : SEED_SHOPPING.stores, items: sh.items || [] });
+                setShopping({ ...sh, stores: sh.stores && sh.stores.length ? sh.stores : SEED_SHOPPING.stores, items: sh.items || [] });
             if (sd)
                 setSaasData(sd);
             if (ms)
@@ -3738,6 +3738,73 @@ function MealPlan({ daily, setDayFor, diet, setDiet }) {
   ].map((r, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 10px", borderBottom: i < 3 ? "1px solid var(--line)" : "none" } }, /* @__PURE__ */ React.createElement("div", { style: { width: 22, height: 22, borderRadius: 7, display: "grid", placeItems: "center", background: r.ok ? "var(--green)" : "var(--surface2)", border: r.ok ? "none" : "1px solid var(--line2)" } }, r.ok ? /* @__PURE__ */ React.createElement(Check, { size: 14, color: "#04130a", strokeWidth: 3 }) : /* @__PURE__ */ React.createElement(X, { size: 12, color: "var(--faint)" })), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, fontSize: 13, fontWeight: 600, color: r.ok ? "var(--text)" : "var(--muted)" } }, r.label), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: r.ok ? "var(--green2)" : "var(--faint)" } }, r.val)))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--faint)", textAlign: "center", margin: "12px 8px 4px", lineHeight: 1.45 } }, "Wpisz gramatur\u0119 tylko gdy r\xF3\u017Cni si\u0119 od planu (puste = plan). Brak wzrostu \u015Bredniej wagi przez 2 tyg. \u2192 +1 \u0142y\u017Cka oliwy w P2 albo wi\u0119cej \u015Bmietanki w koktajlu."));
 }
 
+const SHOP_EPOCH = "2026-11-23";
+const addDays = (key, n) => {
+  const d = /* @__PURE__ */ new Date(key + "T12:00:00");
+  d.setDate(d.getDate() + n);
+  return keyOf(d);
+};
+const shopWindow = (key) => {
+  const days = Math.floor((/* @__PURE__ */ new Date(key + "T12:00:00") - /* @__PURE__ */ new Date(SHOP_EPOCH + "T12:00:00")) / 864e5);
+  const idx = Math.floor(days / 3);
+  const start = addDays(SHOP_EPOCH, idx * 3);
+  return { start, days: [start, addDays(start, 1), addDays(start, 2)], next: addDays(start, 3) };
+};
+const fmtQty = (q, u) => {
+  if (u === "szt") return `${Math.ceil(q)} szt`;
+  const big = u === "ml" ? "l" : "kg";
+  if (q >= 1e3) return `${(Math.round(q / 100) / 10).toLocaleString("pl-PL")} ${big}`;
+  return `${Math.round(q / 10) * 10} ${u}`;
+};
+const SHOP_HINT = {
+  avo: (q) => `\u2248 ${Math.ceil(q / 150)} szt`,
+  bread: (q) => `\u2248 ${Math.max(1, Math.ceil(q / 500))} bochenek`,
+  choc: (q) => `\u2248 ${Math.max(1, Math.ceil(q / 100))} tabliczki 100 g`,
+  milk: (q) => `\u2248 ${Math.max(1, Math.ceil(q / 1e3))} karton(y) 1 l`,
+  cream: (q) => `\u2248 ${Math.max(1, Math.ceil(q / 250))} \xD7 250 ml`,
+  olive: (q) => q < 300 ? "sprawd\u017A zapas" : "kup butelk\u0119",
+  honey: () => "sprawd\u017A zapas",
+  butter: (q) => `\u2248 ${Math.max(1, Math.ceil(q / 250))} kostka`,
+  egg: (q) => `\u2248 ${Math.ceil(q / 10)} op. po 10`
+};
+const buildAutoShop = (daily, mult, store) => {
+  const w = shopWindow(todayKey());
+  const tot = {};
+  w.days.forEach((k) => {
+    const mp = (daily[k] || {}).mplan || {};
+    mealsFor(weekdayIdx(k)).forEach((m) => m.items.forEach(([key, g]) => {
+      const iid = `${m.id}_${key}`;
+      const ov = mp.g && mp.g[iid] != null && mp.g[iid] !== "" ? parseFloat(mp.g[iid]) : null;
+      tot[key] = (tot[key] || 0) + (ov != null && !isNaN(ov) ? ov : stageG(key, g, mult));
+    }));
+  });
+  const items = Object.entries(tot).filter(([, q]) => q > 0).map(([key, q]) => {
+    const it = PF[key];
+    const hint = SHOP_HINT[key] ? ` (${SHOP_HINT[key](q)})` : "";
+    return { id: `auto_${key}`, name: `\u{1F4CB} ${it.n} \u2014 ${fmtQty(q, it.u)}${hint}`, store, done: false, auto: true };
+  });
+  return { win: w.start, items };
+};
+const mergeAutoShop = (shopping, built, force) => {
+  const sameWin = shopping.autoWin === built.win;
+  const prev = {};
+  (shopping.items || []).forEach((it) => {
+    if (it.auto) prev[it.id] = it;
+  });
+  const autoItems = built.items.map((it) => sameWin && prev[it.id] ? { ...it, done: prev[it.id].done, price: prev[it.id].price, store: prev[it.id].store || it.store } : it);
+  return { ...shopping, autoWin: built.win, items: [...autoItems, ...(shopping.items || []).filter((it) => !it.auto)] };
+};
+function AutoShopBar({ shopping, setShopping, daily, diet }) {
+  const w = shopWindow(todayKey());
+  const mult = (STAGES.find((s) => s.k === (diet.stage || 1)) || STAGES[0]).mult;
+  const fmt = (k) => `${parseInt(k.slice(8))}.${k.slice(5, 7)}`;
+  const refresh = () => {
+    buzz(8);
+    setShopping((p) => mergeAutoShop(p, buildAutoShop(daily, mult, (p.stores || [])[0] || "Sklep"), true));
+  };
+  return /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 14 }, pad: 12 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13.5, fontWeight: 800 } }, "\u{1F4CB} Lista z planu diety"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)", marginTop: 2 } }, "Na ", fmt(w.days[0]), "\u2013", fmt(w.days[2]), " \xB7 nowa lista ", fmt(w.next), " \xB7 etap ", diet.stage || 1)), /* @__PURE__ */ React.createElement("button", { onClick: refresh, style: { ...iconBtn, width: "auto", padding: "0 12px", fontSize: 12, fontWeight: 700, color: "var(--green2)" } }, "Od\u015Bwie\u017C")));
+}
+
 /* ───────────────────────── DIET / FITATU-STYLE ───────────────────────── */
 const SEED_DIET = { age: 25, sex: "m", activity: "mod", surplus: 400, proteinPerKg: 2.0, fatPerKg: 0.9 };
 const SEED_SHOPPING = {
@@ -4334,6 +4401,12 @@ function ItemRow({ it, onToggle, onDel, onPrice }) {
 }
 function Diet({ diet, setDiet, shopping, setShopping, day, setDay, profile, supps, measures, finance, setFinance, setToast, daily, setDayFor }) {
     const [seg, setSeg] = useState("plan");
+    const dietMult = (STAGES.find((x) => x.k === (diet.stage || 1)) || STAGES[0]).mult;
+    useEffect(() => {
+        const st = diet.stage || 1;
+        if (shopping.autoWin !== shopWindow(todayKey()).start || shopping.autoStage !== st)
+            setShopping((p) => ({ ...mergeAutoShop(p, buildAutoShop(daily || {}, dietMult, (p.stores || [])[0] || "Sklep")), autoStage: st }));
+    }, [diet.stage]);
     const [goalsOpen, setGoalsOpen] = useState(false);
     const [foodOpen, setFoodOpen] = useState(false);
     const [shopOpen, setShopOpen] = useState(false);
@@ -4368,15 +4441,16 @@ function Diet({ diet, setDiet, shopping, setShopping, day, setDay, profile, supp
     const pG = Math.round((diet.proteinPerKg || 2) * w);
     const fG = Math.round((diet.fatPerKg || 0.9) * w);
     const cG = Math.max(0, Math.round((calTarget - pG * 4 - fG * 9) / 4));
-    const food = day.food || [];
+    const planEv = evalPlanDay(todayKey(), day, dietMult);
+    const planRows = planEv.done.map((m) => { const ms = planEv.mealSums[m.id]; return { id: "plan_" + m.id, name: "📋 " + m.name + " (z planu)", kcal: Math.round(ms.kcal), p: +ms.p.toFixed(1), c: +ms.c.toFixed(1), f: +ms.f.toFixed(1) }; });
+    const food = [...planRows, ...(day.food || [])];
     const meals = diet.meals || [];
     const recentFoods = (diet.recent || []).map((n) => FOODS.find((f) => f.n === n)).filter(Boolean);
-    const planToday = evalPlanDay(todayKey(), day, (STAGES.find((x) => x.k === (diet.stage || 1)) || STAGES[0]).mult).eaten;
-    const sum = addM(food.reduce((a, x) => ({ kcal: a.kcal + (x.kcal || 0), p: a.p + (x.p || 0), c: a.c + (x.c || 0), f: a.f + (x.f || 0) }), { kcal: 0, p: 0, c: 0, f: 0 }), planToday);
+    const sum = food.reduce((a, x) => ({ kcal: a.kcal + (x.kcal || 0), p: a.p + (x.p || 0), c: a.c + (x.c || 0), f: a.f + (x.f || 0) }), { kcal: 0, p: 0, c: 0, f: 0 });
     const calPct = calTarget ? (sum.kcal / calTarget) * 100 : 0;
     const left = Math.round(calTarget - sum.kcal);
     const addFood = (item) => { setDay((c) => ({ ...c, food: [{ id: uid(), ...item }, ...(c.food || [])] })); buzz(8); };
-    const delFood = (id) => setDay((c) => ({ ...c, food: (c.food || []).filter((x) => x.id !== id) }));
+    const delFood = (id) => { if (String(id).startsWith("plan_")) { const mid = id.slice(5); setDay((c) => ({ ...c, mplan: { ...(c.mplan || {}), [mid]: { ...((c.mplan || {})[mid] || {}), done: false } } })); return; } setDay((c) => ({ ...c, food: (c.food || []).filter((x) => x.id !== id) })); };
     const saveMeal = () => {
         const nm = mealName.trim();
         const items = (day.food || []);
@@ -4596,6 +4670,7 @@ function Diet({ diet, setDiet, shopping, setShopping, day, setDay, profile, supp
             React.createElement("div", { style: { height: 8 } }),
             React.createElement("button", { onClick: openFoodSheet, style: fab },
                 React.createElement(Plus, { size: 26, color: "#04130a", strokeWidth: 3 })))) : (React.createElement("div", null,
+            React.createElement(AutoShopBar, { shopping, setShopping, daily: daily || {}, diet }),
             React.createElement("div", { style: { display: "flex", gap: 8, overflowX: "auto", padding: "16px 0 4px", margin: "0 -16px", paddingLeft: 16, paddingRight: 16 }, className: "noscroll" },
                 React.createElement(Chip, { on: store === "all", onClick: () => setStore("all"), label: "Wszystko", color: "var(--green2)", count: shopping.items.filter((i) => !i.done).length }),
                 stores.map((s) => React.createElement(Chip, { key: s, on: store === s, onClick: () => setStore(s), label: s, color: "var(--gold2)", count: shopping.items.filter((i) => i.store === s && !i.done).length })),
