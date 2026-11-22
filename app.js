@@ -3791,7 +3791,7 @@ const mergeAutoShop = (shopping, built, force) => {
   (shopping.items || []).forEach((it) => {
     if (it.auto) prev[it.id] = it;
   });
-  const autoItems = built.items.map((it) => sameWin && prev[it.id] ? { ...it, done: prev[it.id].done, price: prev[it.id].price, store: prev[it.id].store || it.store } : it);
+  const autoItems = built.items.map((it) => sameWin && prev[it.id] ? { ...it, done: prev[it.id].done, price: prev[it.id].price, store: prev[it.id].store || it.store, txId: prev[it.id].txId, txDate: prev[it.id].txDate } : it);
   return { ...shopping, autoWin: built.win, items: [...autoItems, ...(shopping.items || []).filter((it) => !it.auto)] };
 };
 function AutoShopBar({ shopping, setShopping, daily, diet }) {
@@ -3804,6 +3804,26 @@ function AutoShopBar({ shopping, setShopping, daily, diet }) {
   };
   return /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 14 }, pad: 12 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13.5, fontWeight: 800 } }, "\u{1F4CB} Lista z planu diety"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)", marginTop: 2 } }, "Na ", fmt(w.days[0]), "\u2013", fmt(w.days[2]), " \xB7 nowa lista ", fmt(w.next), " \xB7 etap ", diet.stage || 1)), /* @__PURE__ */ React.createElement("button", { onClick: refresh, style: { ...iconBtn, width: "auto", padding: "0 12px", fontSize: 12, fontWeight: 700, color: "var(--green2)" } }, "Od\u015Bwie\u017C")));
 }
+
+
+/* ───── Zakupy → Finanse: automatyczna kategoryzacja odhaczonych pozycji ───── */
+const SHOP_RULES = [
+  [/paliw|benzyn|diesel|myjni|parking|olej silnik/i, /transport|paliw|auto|van/i],
+  [/flyer|ulotk|wizytów|sprzęt|druk|domen|hosting|biuro/i, /biznes|firma|d2d|saas/i],
+  [/czynsz|prąd|gaz|internet|rachun/i, /mieszkan|czynsz|dom/i],
+  [/kino|gra|netflix|spotify|bilet|prezent|alkohol|piwo/i, /rozrywk|inne|fun/i],
+];
+const FOOD_WORDS = /jaj|mas[łl]|awokad|ser|chleb|orzech|wołow|wołowina|antrykot|wątrób|łoso|makrel|ryb|oliw|warzyw|brokuł|szpinak|papryk|czekolad|mlek|kefir|śmietan|jogurt|banan|miód|kurcz|indyk|ryż|makaron|kasz|twaróg|kwark|owoc|mięs|suplement|kreatyn|magnez|omega|witamin|białk|płatk/i;
+const findCat = (cats, re) => (cats || []).find((c) => re.test(c.name));
+const shopCatFor = (finance, it) => {
+  const cats = finance.cats || [];
+  const food = findCat(cats, /jedzen|żywn|spożyw|food/i);
+  if (it.auto || FOOD_WORDS.test(it.name)) return (food || cats[0] || {}).id || null;
+  for (const [itemRe, catRe] of SHOP_RULES) if (itemRe.test(it.name)) { const c = findCat(cats, catRe); if (c) return c.id; }
+  const other = findCat(cats, /inne|rozrywk/i);
+  return (other || food || cats[0] || {}).id || null;
+};
+const shopTxNote = (it) => "Zakupy · " + it.name.replace(/^📋\s*/, "").replace(/\s*\(.*\)\s*$/, "") + (it.store ? " (" + it.store + ")" : "");
 
 /* ───────────────────────── DIET / FITATU-STYLE ───────────────────────── */
 const SEED_DIET = { age: 25, sex: "m", activity: "mod", surplus: 400, proteinPerKg: 2.0, fatPerKg: 0.9 };
@@ -4506,7 +4526,30 @@ function Diet({ diet, setDiet, shopping, setShopping, day, setDay, profile, supp
     const stores = shopping.stores;
     const addItem = () => { if (!sn.trim())
         return; setShopping((p) => ({ ...p, items: [{ id: uid(), name: sn.trim(), store: sStore || p.stores[0], done: false, price: 0 }, ...p.items] })); setSn(""); buzz(8); };
-    const toggleItem = (id) => { buzz(8); setShopping((p) => ({ ...p, items: p.items.map((it) => it.id === id ? { ...it, done: !it.done } : it) })); };
+    // odhaczenie z ceną → wydatek w Finansach (auto-kategoria); odznaczenie → usuwa ten wydatek
+    const syncShopTx = (it, done, price) => {
+        const txId = it.txId || ("shop_" + uid());
+        if (done && price > 0) {
+            const cat = shopCatFor(finance, it);
+            const tx = { id: txId, type: "expense", amount: Math.round(price * 100) / 100, note: shopTxNote(it), date: it.txDate || todayKey(), cat, inc: null, src: "shop" };
+            setFinance((f) => ({ ...f, tx: (f.tx || []).some((t) => t.id === txId) ? f.tx.map((t) => (t.id === txId ? tx : t)) : [tx, ...(f.tx || [])] }));
+            if (setToast && !it.txId)
+                setToast({ icon: "piggy", title: "Dodano do Finansów", msg: eur(tx.amount) + " · " + (((finance.cats || []).find((c) => c.id === cat) || {}).name || "wydatek"), color: "var(--green)" });
+            return { txId, txDate: tx.date };
+        }
+        if (it.txId)
+            setFinance((f) => ({ ...f, tx: (f.tx || []).filter((t) => t.id !== it.txId) }));
+        return { txId: null, txDate: null };
+    };
+    const toggleItem = (id) => {
+        buzz(8);
+        const it = shopping.items.find((x) => x.id === id);
+        if (!it)
+            return;
+        const done = !it.done;
+        const link = syncShopTx(it, done, it.price || 0);
+        setShopping((p) => ({ ...p, items: p.items.map((x) => (x.id === id ? { ...x, done, ...link } : x)) }));
+    };
     const delItem = (id) => setShopping((p) => ({ ...p, items: p.items.filter((it) => it.id !== id) }));
     const clearDone = () => setShopping((p) => ({ ...p, items: p.items.filter((it) => !it.done) }));
     const addStore = () => { const n = newStore.trim(); if (!n || stores.includes(n)) {
@@ -4514,12 +4557,18 @@ function Diet({ diet, setDiet, shopping, setShopping, day, setDay, profile, supp
         return;
     } setShopping((p) => ({ ...p, stores: [...p.stores, n] })); setNewStore(""); setStoreAddOpen(false); };
     const itemsFor = (st) => shopping.items.filter((it) => it.store === st).sort((a, b) => (a.done === b.done ? 0 : a.done ? 1 : -1));
-    const setPrice = (id, v) => setShopping((p) => ({ ...p, items: p.items.map((it) => it.id === id ? { ...it, price: Math.max(0, parseFloat(v) || 0) } : it) }));
+    const setPrice = (id, v) => {
+        const price = Math.max(0, parseFloat(v) || 0);
+        const it = shopping.items.find((x) => x.id === id);
+        const link = it && it.done ? syncShopTx(it, true, price) : {};
+        setShopping((p) => ({ ...p, items: p.items.map((x) => (x.id === id ? { ...x, price, ...link } : x)) }));
+    };
     const shopPlan = shopping.items.reduce((a, it) => a + (it.price || 0), 0);
     const shopBought = shopping.items.filter((it) => it.done).reduce((a, it) => a + (it.price || 0), 0);
+    const shopUnlogged = shopping.items.filter((it) => !it.txId && (it.price || 0) > 0).length;
     const logShopping = () => {
         const useBought = shopBought > 0;
-        const srcItems = shopping.items.filter((it) => (useBought ? it.done : true) && (it.price || 0) > 0);
+        const srcItems = shopping.items.filter((it) => !it.txId && (useBought ? it.done : true) && (it.price || 0) > 0);
         if (!srcItems.length)
             return;
         const byStore = {};
@@ -4698,7 +4747,7 @@ function Diet({ diet, setDiet, shopping, setShopping, day, setDay, profile, supp
                     "Brak rzeczy dla \u201E",
                     store,
                     "\". Dodaj \u2193"))) : (itemsFor(store).map((it) => React.createElement(ItemRow, { key: it.id, it: it, onToggle: toggleItem, onDel: delItem, onPrice: setPrice }))))),
-            (shopBought > 0 || (shopPlan > 0 && shopping.items.length > 0)) && (React.createElement("button", { onClick: logShopping, style: { ...btnPrimary, marginTop: 10 } }, shopBought > 0 ? "Zapisz kupione jako wydatek · " + eur(shopBought) : "Zapisz całość jako wydatek · " + eur(shopPlan))),
+            (shopUnlogged > 0 && false) && (React.createElement("button", { onClick: logShopping, style: { ...btnPrimary, marginTop: 10 } }, shopBought > 0 ? "Zapisz kupione jako wydatek · " + eur(shopBought) : "Zapisz całość jako wydatek · " + eur(shopPlan))),
             shopping.items.some((i) => i.done) && (React.createElement("button", { onClick: clearDone, style: { ...inputStyle, width: "100%", cursor: "pointer", color: "var(--faint)", fontWeight: 600, textAlign: "center", border: "1px dashed var(--line2)", background: "transparent", marginTop: 8 } }, "Usu\u0144 kupione (bez zapisu)")),
             React.createElement("div", { style: { height: 8 } }),
             React.createElement("button", { onClick: () => { setSn(""); setSStore(store === "all" ? stores[0] : store); setShopOpen(true); }, style: fab },
