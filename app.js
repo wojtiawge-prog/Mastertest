@@ -193,6 +193,14 @@ const SEED_SUPPS = [
     { id: "s_ashwa", name: "Ashwagandha KSM-66", dose: "600 mg", when: "Wieczór" },
 ];
 const SYNC_KEYS = ["mp_profile_v1", "mp_habits_v1", "mp_supps_v1", "mp_daily_v4", "mp_tasks_v1", "mp_finance_v1", "mp_events_v1", "mp_diet_v1", "mp_shopping_v1", "mp_saas_v1", "mp_measures_v1", "mp_books_v1", "mp_prs_v1", "mp_review_v1", "mp_medi_v1", "mp_voice_v1", "mp_blood_v1", "mp_charisma_v1", "mp_journal_v1", "mp_bizplan_v1", "mp_trades_v1", "mp_rest_v1", "mp_gate_v1", "mp_fav_v1", "mp_goal_v1", "mp_dgrep_v1"];
+const sbNormUrl = (u) => {
+  u = String(u || "").trim().replace(/^["']|["']$/g, "");
+  const dash = /supabase\.com\/dashboard\/project\/([a-z0-9]+)/i.exec(u);
+  if (dash) return "https://" + dash[1] + ".supabase.co";
+  if (/^[a-z0-9]{15,}$/i.test(u)) return "https://" + u + ".supabase.co";
+  if (!/^https?:\/\//i.test(u)) u = "https://" + u;
+  try { return new URL(u).origin; } catch (e) { return u; }
+};
 const SYNC_SQL = `create table if not exists mp_state (
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
   key text not null,
@@ -283,7 +291,7 @@ const sync = {
   async makeCloud(cfg) {
     if (typeof window !== "undefined" && window.__MP_MOCK_CLOUD) return window.__MP_MOCK_CLOUD;
     const { createClient } = await import("@supabase/supabase-js");
-    const c = createClient(cfg.url.trim(), cfg.key.trim(), { auth: { persistSession: true, storageKey: "mp_sb_auth" } });
+    const c = createClient(sbNormUrl(cfg.url), cfg.key.trim().replace(/^["']|["']$/g, ""), { auth: { persistSession: true, storageKey: "mp_sb_auth" } });
     return {
       async user() {
         const { data } = await c.auth.getSession();
