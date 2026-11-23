@@ -3014,9 +3014,11 @@ function Money({ finance, setFinance, events, setTab }) {
         const v = parseFloat(amount);
         if (isNaN(v) || v <= 0)
             return;
-        const t = { id: uid(), type, amount: v, note: note.trim(), date: todayKey(), cat: type === "expense" ? cat : null, inc: type === "income" ? inc : null };
+        const toGate = type === "income" && inc !== ((finance.salary || {}).inc || "i_job");
+        const t = { id: uid(), type, amount: v, note: note.trim(), date: todayKey(), cat: type === "expense" ? cat : null, inc: type === "income" ? inc : null, ...(toGate ? { toGate: true } : {}) };
         const ru = (type === "expense" && finance.roundUp) ? roundUpOf(v) : 0;
-        setFinance((p) => ({ ...p, tx: [t, ...p.tx], vault: (p.vault || 0) + ru, vaultRoundup: (p.vaultRoundup || 0) + ru }));
+        setFinance((p) => ({ ...p, tx: [t, ...p.tx], vault: (p.vault || 0) + ru + (toGate ? v : 0), vaultRoundup: (p.vaultRoundup || 0) + ru }));
+        if (toGate) { try { const m = monthKey(); goalStore.set((g) => ({ moved: { ...(g.moved || {}), [m]: ((g.moved || {})[m] || 0) + v } })); const gs = num(gateStore.v.savings); if (gs != null) gateStore.set({ savings: String(gs + v) }); } catch (e) {} }
         buzz(8);
         setAmount("");
         setNote("");
@@ -3392,6 +3394,7 @@ function Money({ finance, setFinance, events, setTab }) {
             React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, type === "expense"
                 ? finance.cats.map((c) => React.createElement(Chip, { key: c.id, on: cat === c.id, onClick: () => setCat(c.id), label: c.name, color: c.color }))
                 : (finance.income || []).map((c) => React.createElement(Chip, { key: c.id, on: inc === c.id, onClick: () => setInc(c.id), label: c.name, color: "var(--green2)" }))),
+            type === "income" && inc !== ((finance.salary || {}).inc || "i_job") && React.createElement("div", { style: { marginTop: 8, fontSize: 12, color: "var(--green2)", fontWeight: 700 } }, "\uD83D\uDEAA Ten przych\u00F3d trafi od razu do Bramy (skarbonka) \u2014 poza bud\u017Cetem."),
             React.createElement("label", { style: label }, "Notatka (opcjonalnie)"),
             React.createElement("input", { style: inputStyle, value: note, onChange: (e) => setNote(e.target.value), placeholder: "np. zakupy AH" }),
             liveRound > 0 && (React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 12, padding: "10px 12px", borderRadius: 12, background: "rgba(245,181,61,.1)", border: "1px solid rgba(245,181,61,.25)" } },
@@ -4562,6 +4565,17 @@ function Goal100({ finance, setFinance, setSaasData, setToast, setTab }) {
       const ex = pl.find((l) => l.name.toLowerCase() === nm.toLowerCase());
       return { ...p, pipeline: ex ? pl.map((l) => l === ex ? { ...l, stage: "Zamkni\u0119ty", val: c.price } : l) : [...pl, { id: uid(), name: nm, stage: "Zamkni\u0119ty", val: c.price }], revenue: c.fee ? [...p.revenue || [], { id: uid(), amt: c.fee, note: "Wdro\u017Cenie " + nm, date: todayKey() }] : p.revenue || [] };
     });
+    if (c.fee && setFinance) {
+      const eurV = Math.round(c.fee / (num(g.pln) || 4.25) * 100) / 100;
+      setFinance((f) => {
+        const income = (f.income || []).some((x) => x.id === "i_biz") ? f.income : [...f.income || [], { id: "i_biz", name: "SkupOS / biznes" }];
+        return { ...f, income, tx: [{ id: uid(), type: "income", amount: eurV, note: "Wdro\u017Cenie SkupOS: " + nm, date: todayKey(), cat: null, inc: "i_biz", toGate: true }, ...f.tx || []], vault: (f.vault || 0) + eurV };
+      });
+      const m = monthKey();
+      goalStore.set((x) => ({ moved: { ...x.moved || {}, [m]: ((x.moved || {})[m] || 0) + eurV } }));
+      const gs = num(gateStore.v.savings);
+      if (gs != null) gateStore.set({ savings: String(gs + eurV) });
+    }
     setCn("");
     setCp("");
     setCf("");
