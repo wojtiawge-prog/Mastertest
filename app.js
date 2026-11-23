@@ -2069,10 +2069,16 @@ function Home({ profile, setProfile, habits, supps, day, daily, setDayFor, tasks
             }
             if (!window.confirm("Wczytać kopię? To NADPISZE wszystkie obecne dane w aplikacji."))
                 return;
-            Object.keys(dump.ls).forEach((k) => { try {
+            // kopia wygrywa z chmurą: każdy wczytany klucz dostaje świeży czas i idzie do wysłania
+            // (wcześniej starszy czas z kopii przegrywał z chmurą i wczytane dane znikały po synchronizacji)
+            const teraz = Date.now();
+            Object.keys(dump.ls).forEach((k) => { if (k === "mp_sync_meta" || k === "mp_sb_auth") return; try {
                 localStorage.setItem(k, dump.ls[k]);
+                if (SYNC_KEYS.includes(k)) { sync.meta[k] = { ts: teraz, h: hashStr(dump.ls[k]) }; sync.dirty.add(k); }
             }
             catch (e) { } });
+            sync.saveMeta();
+            try { if (sync.cloud && sync.user) { setBkpMsg("Wysyłam kopię do chmury…"); await sync.push(); } } catch (e) { }
             if (dump.photos) {
                 try {
                     await idb.set("photos", dump.photos);
