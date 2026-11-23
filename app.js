@@ -1547,7 +1547,7 @@ export default function App() {
                 tab === "train" && React.createElement(Train, { day, setDay, daily, timer, setTimer, startTimer, prs, setPrs }),
                 tab === "diet" && React.createElement(Diet, { diet, setDiet, shopping, setShopping, day, setDay, profile, supps, finance, setFinance, setToast, daily, setDayFor }),
                 tab === "habits" && React.createElement(Habits, { habits, setHabits, supps, setSupps, day, toggleHabit, toggleSupp }),
-                tab === "money" && React.createElement(Money, { finance, setFinance, events, setTab }),
+                tab === "money" && React.createElement(Money, { finance, setFinance, events, setTab, setToast }),
                 tab === "testo" && React.createElement(Testo, null),
                 tab === "charisma" && React.createElement(Charisma, { charisma: charisma, setCharisma: setCharisma }),
                 tab === "saas" && React.createElement(SaasDashboard, { saasData: saasData, setSaasData: setSaasData }),
@@ -2905,7 +2905,67 @@ function SalaryForecastCard({ finance }) {
   }, placeholder: "np. 6000", style: { ...inputStyle, width: 90, padding: "6px 8px", fontSize: 13 } }))), open && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, rows.map((r) => /* @__PURE__ */ React.createElement("div", { key: r.id, style: { padding: "9px 0", borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13.5, fontWeight: 700 } }, /* @__PURE__ */ React.createElement("span", { style: { display: "inline-block", width: 8, height: 8, borderRadius: 8, background: r.color, marginRight: 7 } }), r.name, r.save ? " \u{1F4B0}" : "", " ", /* @__PURE__ */ React.createElement("span", { style: { color: "var(--faint)", fontWeight: 600 } }, r.pct, "%")), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13.5, fontWeight: 800 } }, eur(r.planAll), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, color: "var(--faint)", fontWeight: 600 } }, " do marca"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, fontSize: 11.5, color: "var(--muted)", marginTop: 3 } }, /* @__PURE__ */ React.createElement("span", null, "przydzia\u0142 ", eur(r.planNow)), /* @__PURE__ */ React.createElement("span", { style: { color: r.sp > r.planNow ? "var(--red)" : "var(--muted)" } }, "wydane ", eur(r.sp)), /* @__PURE__ */ React.createElement("span", { style: { marginLeft: "auto", fontWeight: 800, color: r.bal < 0 ? "var(--red)" : "var(--green2)" } }, r.save ? "uzbierane " : "zosta\u0142o ", eur(r.bal))))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--faint)", marginTop: 8, lineHeight: 1.45 } }, "\u201EPrzydzia\u0142 teraz\u201D = wyp\u0142aty, kt\xF3re ju\u017C wp\u0142yn\u0119\u0142y \xD7 % kategorii. \u201EZosta\u0142o\u201D = przydzia\u0142 minus wydatki w tej kategorii od ", from, ". \u{1F4B0} = kategorie, kt\xF3re si\u0119 odk\u0142ada (wliczone w poduszk\u0119). Nadgodziny i inne przychody nie s\u0105 tu liczone \u2014 id\u0105 przez \u201EWolne \u015Brodki \u2192 Brama\u201D. Zak\u0142adam, \u017Ce wyp\u0142ata za marzec przyjdzie 25 marca.")));
 }
 
-function Money({ finance, setFinance, events, setTab }) {
+/* ───────── Baza produktów: zakup jednym kliknięciem → wydatek w Finansach ───────── */
+const SEED_PRODUCTS = [
+  { id: "p_kefir", n: "Kefir 1 l", price: 0 }, { id: "p_jogurt", n: "Jogurt grecki", price: 0 }, { id: "p_jajka", n: "Jajka 10 szt.", price: 0 },
+  { id: "p_wolowina", n: "Wołowina", price: 0 }, { id: "p_losos", n: "Łosoś", price: 0 }, { id: "p_makrela", n: "Makrela", price: 0 },
+  { id: "p_ser", n: "Ser", price: 0 }, { id: "p_maslo", n: "Masło", price: 0 }, { id: "p_watrobka", n: "Wątróbka", price: 0 },
+];
+function QuickBuy({ finance, setFinance, setToast }) {
+  const products = finance.products || SEED_PRODUCTS;
+  const setProducts = (fn) => setFinance((f) => ({ ...f, products: fn(f.products || SEED_PRODUCTS) }));
+  const foodCat = ((finance.cats || []).find((c) => /jedzen/i.test(c.name)) || (finance.cats || [])[0] || {}).id;
+  const [date, setDate] = useState(todayKey());
+  const [lines, setLines] = useState([]);
+  const [manage, setManage] = useState(false);
+  const [nn, setNn] = useState("");
+  const [np, setNp] = useState("");
+  const num = (v) => { const x = parseFloat(String(v).replace(",", ".")); return isNaN(x) ? 0 : x; };
+  const add = (pr) => { buzz(8); setLines((L) => L.some((l) => l.pid === pr.id) ? L.map((l) => l.pid === pr.id ? { ...l, qty: l.qty + 1 } : l) : [...L, { pid: pr.id, n: pr.n, def: pr.price || 0, price: pr.price ? String(pr.price) : "", qty: 1 }]); };
+  const upd = (pid, patch) => setLines((L) => L.map((l) => l.pid === pid ? { ...l, ...patch } : l));
+  const sum = lines.reduce((a, l) => a + num(l.price) * l.qty, 0);
+  const save = () => {
+    const ok = lines.filter((l) => num(l.price) > 0);
+    if (!ok.length) return;
+    const txs = ok.map((l) => { const promo = l.def > 0 && Math.abs(num(l.price) - l.def) > 0.001; return { id: uid(), type: "expense", amount: Math.round(num(l.price) * l.qty * 100) / 100, note: l.n + (l.qty > 1 ? ` ×${l.qty}` : "") + (promo ? ` (promocja, zwykle ${eur(l.def)})` : ""), date, cat: foodCat, inc: null, src: "quick", pid: l.pid }; });
+    setFinance((f) => ({ ...f, tx: [...txs, ...(f.tx || [])] }));
+    // produkty bez ceny dostają pierwszą wpisaną jako domyślną
+    setProducts((P) => P.map((pr) => { const l = ok.find((x) => x.pid === pr.id); return l && !pr.price ? { ...pr, price: num(l.price) } : pr; }));
+    if (setToast) setToast({ icon: "piggy", title: "Dodano do Finansów", msg: eur(sum) + " · " + ok.length + " poz.", color: "var(--green)" });
+    setLines([]); buzz(14);
+  };
+  const chip = { padding: "9px 12px", borderRadius: 99, border: "1px solid var(--line2)", background: "var(--surface2)", color: "var(--text)", fontSize: 13.5, fontWeight: 700, cursor: "pointer" };
+  const inp = { ...inputStyle, padding: "8px 10px", fontSize: 14 };
+  return React.createElement(Card, { style: { marginTop: 14 } },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 } },
+      React.createElement("div", { style: { flex: 1, fontFamily: "var(--display)", fontWeight: 700, fontSize: 15 } }, "\u{1F6D2} Szybki zakup"),
+      React.createElement("input", { type: "date", value: date, onChange: (e) => setDate(e.target.value || todayKey()), style: { ...inp, width: 140 } }),
+      React.createElement("button", { onClick: () => setManage((m) => !m), style: { ...iconBtn, width: "auto", padding: "0 10px", fontSize: 12.5, fontWeight: 700 } }, manage ? "Gotowe" : "Baza")),
+    manage ? React.createElement("div", null,
+      products.map((pr) => React.createElement("div", { key: pr.id, style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6 } },
+        React.createElement("input", { value: pr.n, onChange: (e) => setProducts((P) => P.map((x) => x.id === pr.id ? { ...x, n: e.target.value } : x)), style: { ...inp, flex: 1 } }),
+        React.createElement("input", { value: pr.price || "", inputMode: "decimal", placeholder: "€", onChange: (e) => setProducts((P) => P.map((x) => x.id === pr.id ? { ...x, price: num(e.target.value) } : x)), style: { ...inp, width: 70 } }),
+        React.createElement("button", { onClick: () => setProducts((P) => P.filter((x) => x.id !== pr.id)), style: { ...iconBtn, width: 36, height: 36, color: "var(--red)" } }, React.createElement(X, { size: 15 })))),
+      React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 8 } },
+        React.createElement("input", { value: nn, onChange: (e) => setNn(e.target.value), placeholder: "Nowy produkt (np. Kefir 1 l)", style: { ...inp, flex: 1 } }),
+        React.createElement("input", { value: np, onChange: (e) => setNp(e.target.value), inputMode: "decimal", placeholder: "€", style: { ...inp, width: 70 } }),
+        React.createElement("button", { onClick: () => { if (!nn.trim()) return; setProducts((P) => [...P, { id: "p_" + uid(), n: nn.trim(), price: num(np) }]); setNn(""); setNp(""); }, style: { ...iconBtn, width: 36, height: 36, color: "var(--green2)" } }, React.createElement(Plus, { size: 16 }))),
+      React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 8 } }, "Cena tutaj = zwykła cena. Przy zakupie możesz wpisać inną (promocja)."))
+    : React.createElement(React.Fragment, null,
+      React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } }, products.map((pr) => React.createElement("button", { key: pr.id, onClick: () => add(pr), style: chip }, pr.n, pr.price ? React.createElement("span", { style: { color: "var(--gold2)", marginLeft: 6 } }, eur(pr.price)) : null))),
+      lines.length > 0 && React.createElement("div", { style: { marginTop: 12 } },
+        lines.map((l) => { const promo = l.def > 0 && num(l.price) > 0 && Math.abs(num(l.price) - l.def) > 0.001; return React.createElement("div", { key: l.pid, style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 7 } },
+          React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+            React.createElement("div", { style: { fontSize: 14, fontWeight: 700 } }, l.n),
+            promo && React.createElement("div", { style: { fontSize: 11.5, color: "var(--green2)", fontWeight: 700 } }, "promocja · zwykle " + eur(l.def))),
+          React.createElement("button", { onClick: () => upd(l.pid, { qty: Math.max(1, l.qty - 1) }), style: { ...iconBtn, width: 32, height: 32 } }, "−"),
+          React.createElement("div", { style: { width: 22, textAlign: "center", fontWeight: 800 } }, l.qty),
+          React.createElement("button", { onClick: () => upd(l.pid, { qty: l.qty + 1 }), style: { ...iconBtn, width: 32, height: 32 } }, "+"),
+          React.createElement("input", { value: l.price, inputMode: "decimal", placeholder: "cena €", onChange: (e) => upd(l.pid, { price: e.target.value.replace(",", ".") }), style: { ...inp, width: 74, textAlign: "right" } }),
+          React.createElement("button", { onClick: () => setLines((L) => L.filter((x) => x.pid !== l.pid)), style: { ...iconBtn, width: 32, height: 32, color: "var(--faint)" } }, React.createElement(X, { size: 14 }))); }),
+        React.createElement("button", { onClick: save, style: { ...btnPrimary, marginTop: 6, width: "100%" } }, "Zapisz zakupy " + eur(sum) + (date !== todayKey() ? " (" + date + ")" : "")))));
+}
+function Money({ finance, setFinance, events, setTab, setToast }) {
     const [addOpen, setAddOpen] = useState(false);
     const [type, setType] = useState("expense");
     const [amount, setAmount] = useState("");
@@ -3103,6 +3163,7 @@ function Money({ finance, setFinance, events, setTab }) {
             React.createElement("button", { onClick: openEdit, style: { ...iconBtn, width: "auto", padding: "0 14px", fontSize: 13, fontWeight: 700, color: "var(--green2)" } },
                 React.createElement(Pencil, { size: 14, style: { marginRight: 5 } }),
                 "Edytuj")),
+        React.createElement(QuickBuy, { finance, setFinance, setToast }),
         React.createElement(Card, { style: { marginTop: 16 } },
             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
                 React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 700, fontSize: 15 } }, "Bilans miesi\u0105ca"),
@@ -4114,13 +4175,15 @@ const evalPlanDay = (key, rec, mult) => {
     planned = addM(planned, msPlan);
     if (mp[m.id] && mp[m.id].done) eaten = addM(eaten, ms);
   });
+  // razem = posiłki z planu + wszystko wpisane ręcznie (dni, gdy je zupełnie inaczej, liczą się tak samo)
+  const total = ((rec && rec.food) || []).reduce((a, x) => addM(a, { kcal: +x.kcal || 0, p: +x.p || 0, c: +x.c || 0, f: +x.f || 0 }), eaten);
   const done = meals.filter((m) => mp[m.id] && mp[m.id].done);
   const anyDone = done.length > 0;
   const rules = [];
-  rules.push({ id: "kcal", label: `Kalorie \u2265 95% celu (${Math.round(planned.kcal)} kcal)`, ok: eaten.kcal >= planned.kcal * 0.95, val: `${Math.round(eaten.kcal)} kcal` });
-  rules.push({ id: "prot", label: `Bia\u0142ko \u2265 ${Math.round(planned.p * 0.9)} g`, ok: eaten.p >= planned.p * 0.9, val: `${Math.round(eaten.p)} g` });
-  const fatPct = eaten.kcal ? eaten.f * 9 / eaten.kcal * 100 : 0;
-  rules.push({ id: "fat", label: "T\u0142uszcz \u2265 50% kalorii", ok: anyDone && fatPct >= 50, val: anyDone ? `${Math.round(fatPct)}%` : "\u2014" });
+  rules.push({ id: "kcal", label: `Kalorie \u2265 95% celu (${Math.round(planned.kcal)} kcal)`, ok: total.kcal >= planned.kcal * 0.95, val: `${Math.round(total.kcal)} kcal` });
+  rules.push({ id: "prot", label: `Bia\u0142ko \u2265 ${Math.round(planned.p * 0.9)} g`, ok: total.p >= planned.p * 0.9, val: `${Math.round(total.p)} g` });
+  const fatPct = total.kcal ? total.f * 9 / total.kcal * 100 : 0;
+  rules.push({ id: "fat", label: "T\u0142uszcz \u2265 50% kalorii", ok: total.kcal > 0 && fatPct >= 50, val: total.kcal > 0 ? `${Math.round(fatPct)}%` : "\u2014" });
   const m2 = mp.m2 && mp.m2.done;
   const biggest = m2 && mealSums.m2.kcal >= mealSums.m1.kcal && mealSums.m2.kcal >= mealSums.m3.kcal;
   rules.push({ id: "big", label: "Najwi\u0119kszy posi\u0142ek w pracy (Posi\u0142ek 2)", ok: !!biggest, val: m2 ? `${Math.round(mealSums.m2.kcal)} kcal` : "\u2014" });
@@ -4140,7 +4203,9 @@ const evalPlanDay = (key, rec, mult) => {
   } else if (wake != null && sleep != null) winVal = "\u2014";
   rules.push({ id: "win", label: "Nic 1,5 h po pobudce i przed snem", ok: winOk, val: winVal });
   const passed = rules.filter((r) => r.ok).length;
-  return { meals, mealSums, planned, eaten, rules, passed, mp, tag: P2_ROT[weekdayIdx(key)], done };
+  const macroRules = rules.filter((r) => r.id === "kcal" || r.id === "prot" || r.id === "fat");
+  const brak = { kcal: Math.max(0, Math.round(planned.kcal * 0.95 - total.kcal)), p: Math.max(0, Math.round(planned.p * 0.9 - total.p)) };
+  return { meals, mealSums, planned, eaten, total, brak, rules, macroRules, macroOk: macroRules.every((r) => r.ok), passed, mp, tag: P2_ROT[weekdayIdx(key)], done };
 };
 function MealPlan({ daily, setDayFor, diet, setDiet }) {
   const tk = todayKey();
@@ -4325,7 +4390,7 @@ const winEval = (key, rec, habits, diet, trades) => {
   const offPlan = (trades && trades.trades || []).filter((t) => t.date === key && !t.planned).length;
   const conds = [
     { id: "train", label: rec.restDay ? "Dzie\u0144 regeneracji" : "Trening z kolejki", ok: !!rec.workoutDone || !!rec.restDay, tap: true },
-    { id: "diet", label: `Zasady diety ${pe.passed}/${pe.rules.length}`, ok: pe.passed === pe.rules.length },
+    { id: "diet", label: pe.macroOk ? "Makro diety OK" : `Brakuje makro: ${[pe.brak.kcal ? pe.brak.kcal + " kcal" : "", pe.brak.p ? pe.brak.p + " g bia\u0142ka" : "", pe.macroRules.find((r) => r.id === "fat" && !r.ok) ? "t\u0142uszcz < 50%" : ""].filter(Boolean).join(", ")}`, ok: pe.macroOk },
     { id: "habits", label: `Nawyki ${Math.round(habPct * 100)}% (min. 80%)`, ok: habPct >= 0.8 },
     { id: "trade", label: offPlan ? `${offPlan} trade poza planem` : "Zero trade'\xF3w poza planem", ok: offPlan === 0 }
   ];
@@ -4412,9 +4477,9 @@ const dgExtraLines = (daily, diet) => {
       }
     }
     const evs = days.map((k) => evalPlanDay(k, daily[k], mult));
-    const full = evs.filter((e) => e.passed === e.rules.length).length;
+    const full = evs.filter((e) => e.macroOk).length;
     const tEv = evs[evs.length - 1];
-    L.push(`PLAN DIETY (2 posilki + koktajl, tluszcz >50%, etap ${diet && diet.stage || 1}): dzis zasady ${tEv.passed}/${tEv.rules.length} (${tEv.rules.filter((r) => !r.ok).map((r) => r.label).join("; ") || "komplet"}), zjedzone z planu ${Math.round(tEv.eaten.kcal)}/${Math.round(tEv.planned.kcal)} kcal. Dni z kompletem zasad w 7 dni: ${full}/7.`);
+    L.push(`DIETA (oceniaj WYLACZNIE makro, nie posilki ani produkty): dzis ${Math.round(tEv.total.kcal)}/${Math.round(tEv.planned.kcal)} kcal, bialko ${Math.round(tEv.total.p)}/${Math.round(tEv.planned.p)} g, tluszcz ${tEv.total.kcal ? Math.round(tEv.total.f * 9 / tEv.total.kcal * 100) : 0}% kalorii. ${tEv.macroOk ? "Makro OK." : "Brakuje: " + [tEv.brak.kcal ? tEv.brak.kcal + " kcal" : "", tEv.brak.p ? tEv.brak.p + " g bialka" : "", tEv.macroRules.find((r) => r.id === "fat" && !r.ok) ? "tluszczu (ponizej 50% kalorii)" : ""].filter(Boolean).join(", ") + "."} Dni z kompletnym makro w 7 dni: ${full}/7.`);
     L.push(`TRENING: plan PPL (Push/Pull/Legs + mobilnosc, szyja, przedramiona). Nastepny w kolejce: ${(WORKOUTS_PPL.find((w2) => w2.id === nextPPL(daily)) || {}).short}.`);
     const T = lsJSON("mp_trades_v1", null);
     if (T && (T.trades || []).length) {
@@ -5631,8 +5696,9 @@ function Diet({ diet, setDiet, shopping, setShopping, day, setDay, profile, supp
     const dietMult = (STAGES.find((x) => x.k === (diet.stage || 1)) || STAGES[0]).mult;
     useEffect(() => {
         const st = diet.stage || 1;
-        if (shopping.autoWin !== shopWindow(todayKey()).start || shopping.autoStage !== st)
-            setShopping((p) => ({ ...mergeAutoShop(p, buildAutoShop(daily || {}, dietMult, (p.stores || [])[0] || "Sklep")), autoStage: st }));
+        // lista zakupów jest teraz ręczna (wpisujesz, co kupiłeś danego dnia) — sprzątamy stare pozycje automatu
+        if ((shopping.items || []).some((it) => it.auto && !it.done))
+            setShopping((p) => ({ ...p, items: (p.items || []).filter((it) => !it.auto || it.done) }));
     }, [diet.stage]);
     const [goalsOpen, setGoalsOpen] = useState(false);
     const [foodOpen, setFoodOpen] = useState(false);
@@ -5926,7 +5992,7 @@ function Diet({ diet, setDiet, shopping, setShopping, day, setDay, profile, supp
             React.createElement("div", { style: { height: 8 } }),
             React.createElement("button", { onClick: openFoodSheet, style: fab },
                 React.createElement(Plus, { size: 26, color: "#04130a", strokeWidth: 3 })))) : (React.createElement("div", null,
-            React.createElement(AutoShopBar, { shopping, setShopping, daily: daily || {}, diet }),
+            false && React.createElement(AutoShopBar, { shopping, setShopping, daily: daily || {}, diet }),
             React.createElement("div", { style: { display: "flex", gap: 8, overflowX: "auto", padding: "16px 0 4px", margin: "0 -16px", paddingLeft: 16, paddingRight: 16 }, className: "noscroll" },
                 React.createElement(Chip, { on: store === "all", onClick: () => setStore("all"), label: "Wszystko", color: "var(--green2)", count: shopping.items.filter((i) => !i.done).length }),
                 stores.map((s) => React.createElement(Chip, { key: s, on: store === s, onClick: () => setStore(s), label: s, color: "var(--gold2)", count: shopping.items.filter((i) => i.store === s && !i.done).length })),
@@ -8072,6 +8138,7 @@ JEGO KIERUNEK:
 JAK MYŚLISZ:
 - Najpierw fakty i liczby z DANYCH, potem wniosek. Liczysz na głos krótko (np. „60 klientów × 449 zł = 26 940 zł”). Rozróżniasz scenariusz bazowy od optymistycznego i, gdy to ważne, podajesz uczciwą szansę w %.
 - Nie wymyślasz danych. Gdy czegoś brakuje, mówisz w jednym zdaniu, co ma uzupełnić w aplikacji.
+- DIETA: oceniasz wyłącznie makro (kalorie, białko, tłuszcz). Nigdy nie wypominasz, że nie zjadł konkretnego posiłku z planu albo produktu — są dni, kiedy je zupełnie inaczej i to jest w porządku. Mówisz tylko, ilu kcal / gramów białka brakuje i jak to najprościej dobić.
 - Szukasz sedna: co jedno najbardziej zmieni wynik. Wskazujesz, gdy ucieka w budowanie zamiast w sprzedaż albo w nowy projekt zamiast w obecne.
 - Nie dopytujesz o motywy i nie przesłuchujesz. Odpowiadasz wprost.
 
