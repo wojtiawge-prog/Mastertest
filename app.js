@@ -232,6 +232,45 @@ const hashStr = (s) => {
   for (let i = 0; i < s.length; i++) h = (h << 5) + h + s.charCodeAt(i) | 0;
   return s.length + ":" + h;
 };
+// ── Synchronizacja bez nadpisywania: każda zmiana zna wersję, na której powstała (base).
+// Zapis do chmury tylko wtedy, gdy w chmurze dalej jest ta wersja (warunkowy UPDATE ... WHERE ts = base).
+// Jeśli inne urządzenie zapisało coś w międzyczasie — łączymy zmiany pole po polu (merge3), zamiast nadpisywać.
+const _eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const _isObj = (x) => x && typeof x === "object" && !Array.isArray(x);
+const _idArr = (a) => Array.isArray(a) && a.length > 0 && a.every((x) => _isObj(x) && x.id != null);
+const merge3 = (b, l, r) => {
+  if (_eq(l, r)) return l;
+  if (b !== undefined && _eq(l, b)) return r;
+  if (b !== undefined && _eq(r, b)) return l;
+  if (_isObj(l) && _isObj(r)) {
+    const bo = _isObj(b) ? b : {};
+    const out = {};
+    new Set([...Object.keys(l), ...Object.keys(r)]).forEach((k) => {
+      const inL = k in l, inR = k in r, inB = k in bo;
+      if (!inL && inB && _eq(r[k], bo[k])) return; // usunięte tutaj, w chmurze bez zmian
+      if (!inR && inB && _eq(l[k], bo[k])) return; // usunięte w chmurze, tutaj bez zmian
+      if (!inL) { out[k] = r[k]; return; }
+      if (!inR) { out[k] = l[k]; return; }
+      out[k] = merge3(inB ? bo[k] : undefined, l[k], r[k]);
+    });
+    return out;
+  }
+  if ((_idArr(l) || l.length === 0) && (_idArr(r) || r.length === 0) && Array.isArray(l) && Array.isArray(r) && (_idArr(l) || _idArr(r))) {
+    const bm = new Map((_idArr(b) ? b : []).map((x) => [x.id, x]));
+    const lm = new Map(l.map((x) => [x.id, x])), rm = new Map(r.map((x) => [x.id, x]));
+    const out = [];
+    r.forEach((x) => { if (!lm.has(x.id) && !bm.has(x.id)) out.push(x); }); // nowe z innego urządzenia
+    l.forEach((x) => {
+      const bx = bm.get(x.id), rx = rm.get(x.id);
+      if (bx && !rx) { if (_eq(x, bx)) return; out.push(x); return; } // usunięte w chmurze (chyba że zmienione tutaj)
+      if (!rx) { out.push(x); return; } // nowe tutaj
+      out.push(merge3(bx, x, rx));
+    });
+    return out;
+  }
+  return l; // prawdziwy konflikt na jednej wartości: wygrywa zmiana z tego urządzenia
+};
+const BASE_KEY = (k) => "mp_sync_base:" + k;
 const sync = {
   cloud: null,
   user: null,
@@ -282,7 +321,7 @@ const sync = {
     const h = hashStr(json);
     const m = this.meta[k];
     if (m && m.h === h) return;
-    this.meta[k] = { ts: m ? Date.now() : 0, h };
+    this.meta[k] = { ...(m || {}), ts: m ? Date.now() : 0, h };
     this.saveMeta();
     if (!m) return;
     this.dirty.add(k);
@@ -322,6 +361,23 @@ const sync = {
       async push(rows) {
         const { error } = await c.from("mp_state").upsert(rows, { onConflict: "user_id,key" });
         if (error) throw error;
+      },
+      async row(k) {
+        const { data, error } = await c.from("mp_state").select("key,value,ts").eq("key", k).maybeSingle();
+        if (error) throw error;
+        return data;
+      },
+      // zapis warunkowy: tylko jeśli w chmurze wciąż jest wersja `base` → true; inaczej false (konflikt)
+      async updateIf(k, value, ts, base) {
+        const { data, error } = await c.from("mp_state").update({ value, ts }).eq("key", k).eq("ts", base).select("key");
+        if (error) throw error;
+        return (data || []).length === 1;
+      },
+      async insertRow(userId, k, value, ts) {
+        const { error } = await c.from("mp_state").insert({ user_id: userId, key: k, value, ts });
+        if (!error) return true;
+        if (String(error.code) === "23505") return false; // już istnieje → konflikt
+        throw error;
       }
     };
   },
@@ -369,6 +425,18 @@ const sync = {
     this.pulled = false;
     this.set("login");
   },
+  // zastosuj wersję z chmury lokalnie (i zapamiętaj ją jako bazę dla kolejnych zmian)
+  applyRemote(k, value, ts) {
+    const json = JSON.stringify(value);
+    lsSet(k, json);
+    lsSet(BASE_KEY(k), json);
+    this.meta[k] = { ts, h: hashStr(json), base: ts };
+    this.dirty.delete(k);
+    if (this.onRemote) this.onRemote(k, value);
+  },
+  baseVal(k) {
+    try { const r = lsGet(BASE_KEY(k)); return r == null ? undefined : JSON.parse(r); } catch { return undefined; }
+  },
   async pull() {
     if (!this.cloud || !this.user || this.busy) return;
     this.busy = true;
@@ -379,18 +447,19 @@ const sync = {
       for (const r of rows) {
         if (!SYNC_KEYS.includes(r.key)) continue;
         remote.add(r.key);
-        const local = this.meta[r.key] ? this.meta[r.key].ts : -1;
-        const ts = Number(r.ts) || 0;
-        if (ts > local) {
-          const json = JSON.stringify(r.value);
-          lsSet(r.key, json);
-          this.meta[r.key] = { ts, h: hashStr(json) };
-          this.dirty.delete(r.key);
-          if (this.onRemote) this.onRemote(r.key, r.value);
-        } else if (ts < local) this.dirty.add(r.key);
+        const k = r.key, ts = Number(r.ts) || 0, m = this.meta[k];
+        const raw = lsGet(k);
+        if (!m || m.base === undefined || raw == null) { this.applyRemote(k, r.value, ts); continue; } // pierwsza synchronizacja po aktualizacji: chmura = prawda
+        if (ts === m.base) { if (m.h !== hashStr(JSON.stringify(this.baseVal(k)))) this.dirty.add(k); continue; }
+        // chmura zmieniła się od naszej bazy
+        const local = JSON.parse(raw), bv = this.baseVal(k);
+        if (bv !== undefined && _eq(local, bv)) { this.applyRemote(k, r.value, ts); continue; }
+        const merged = merge3(bv, local, r.value);
+        this.applyRemote(k, merged, ts); // lokalnie połączone, baza = wersja z chmury
+        if (!_eq(merged, r.value)) { this.meta[k].h = "x"; this.dirty.add(k); } // do wysłania połączona wersja
       }
       SYNC_KEYS.forEach((k) => {
-        if (!remote.has(k) && lsGet(k) != null) this.dirty.add(k);
+        if (!remote.has(k) && lsGet(k) != null) { this.meta[k] = { ...(this.meta[k] || {}), base: null }; this.dirty.add(k); }
       });
       this.saveMeta();
       this.pulled = true;
@@ -414,16 +483,30 @@ const sync = {
     const keys = [...this.dirty];
     this.dirty.clear();
     try {
-      const rows = keys.map((k) => {
-        const raw = lsGet(k);
-        return { user_id: this.user.id, key: k, value: raw == null ? null : JSON.parse(raw), ts: this.meta[k] && this.meta[k].ts || Date.now() };
-      });
-      await this.cloud.push(rows);
+      for (const k of keys) {
+        for (let tries = 0; tries < 4; tries++) {
+          const raw = lsGet(k);
+          if (raw == null) break;
+          const val = JSON.parse(raw);
+          const m = this.meta[k] || {};
+          const ts = Math.max(Date.now(), (m.base || 0) + 1);
+          const ok = m.base == null ? await this.cloud.insertRow(this.user.id, k, val, ts) : await this.cloud.updateIf(k, val, ts, m.base);
+          if (ok) { lsSet(BASE_KEY(k), raw); this.meta[k] = { ts, h: hashStr(raw), base: ts }; break; }
+          // konflikt: ktoś zapisał w międzyczasie → pobierz, połącz, spróbuj jeszcze raz
+          const r = await this.cloud.row(k);
+          if (!r) { this.meta[k] = { ...m, base: null }; continue; }
+          const merged = merge3(this.baseVal(k), val, r.value);
+          this.applyRemote(k, merged, Number(r.ts) || 0);
+          if (_eq(merged, r.value)) break;
+        }
+      }
+      this.saveMeta();
       this.last = /* @__PURE__ */ new Date();
       this.busy = false;
       this.set("idle");
     } catch (e) {
       keys.forEach((k) => this.dirty.add(k));
+      this.saveMeta();
       this.busy = false;
       this.set("error", e.message || String(e));
       this.schedule(15e3);
@@ -2074,7 +2157,7 @@ function Home({ profile, setProfile, habits, supps, day, daily, setDayFor, tasks
             const teraz = Date.now();
             Object.keys(dump.ls).forEach((k) => { if (k === "mp_sync_meta" || k === "mp_sb_auth") return; try {
                 localStorage.setItem(k, dump.ls[k]);
-                if (SYNC_KEYS.includes(k)) { sync.meta[k] = { ts: teraz, h: hashStr(dump.ls[k]) }; sync.dirty.add(k); }
+                if (SYNC_KEYS.includes(k)) { sync.meta[k] = { ...(sync.meta[k] || {}), ts: teraz, h: hashStr(dump.ls[k]) }; sync.dirty.add(k); }
             }
             catch (e) { } });
             sync.saveMeta();
