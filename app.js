@@ -1672,7 +1672,7 @@ const m2hm = (m) => {
 const dayShift = (events, k) => shiftOfDate(events, k);
 const SHIFT_WIN = { Ranka: [360, 930], "Popo\u0142udnie": [840, 1410], Nocka: [1320, 1440] };
 const ROUT_M = [{ id: "m1", t: "\u{1F4A7} Woda + \u015Bwiat\u0142o dzienne", m: 2 }, { id: "m2", t: "\u{1F9B7} Z\u0119by, twarz, ubranie", m: 5 }, { id: "m3", t: "\u{1F9CD} Postawa, mewing, szyja", m: 3 }, { id: "m4", t: "\u{1F399}\uFE0F G\u0142os: oddech przepon\u0105 + 2 min czytania na g\u0142os", m: 5 }, { id: "m5", t: "\u{1F48A} Suple", m: 1 }, { id: "m6", t: "\u{1F9D8} Medytacja", m: 10 }, { id: "m7", t: "\u{1F4CB} Rzut oka na plan dnia", m: 2 }];
-const ROUT_E = [{ id: "e1", t: "\u{1F4F5} Ekran od\u0142o\u017Cony, \u015Bwiat\u0142o przygaszone", m: 1 }, { id: "e2", t: "\u{1F6BF} Prysznic", m: 10 }, { id: "e3", t: "\u{1F9B7} Z\u0119by + skincare", m: 5 }, { id: "e4", t: "\u{1F392} Rzeczy na jutro gotowe", m: 2 }, { id: "e5", t: "\u{1F4DD} Dziennik: 3 zdania o dniu", m: 3 }, { id: "e6", t: "\u{1F4DA} Ksi\u0105\u017Cka (papier)", m: 20 }, { id: "e7", t: "\u{1F9D8} Oddech 4-7-8, \u015Bwiat\u0142o off", m: 3 }];
+const ROUT_E = [{ id: "e1", t: "\u{1F4F5} Ekran od\u0142o\u017Cony, \u015Bwiat\u0142o przygaszone", m: 1 }, { id: "e2", t: "\u{1F6BF} Prysznic", m: 10 }, { id: "e3", t: "\u{1F9B7} Z\u0119by + skincare", m: 5 }, { id: "e4", t: "\u{1F392} Rzeczy na jutro gotowe", m: 2 }, { id: "e5", t: "\u{1F4DD} Dziennik: 3 zdania + 1 moment, w kt\xF3rym by\u0142em pewny siebie", m: 3 }, { id: "e6", t: "\u{1F4DA} Ksi\u0105\u017Cka (papier)", m: 20 }, { id: "e7", t: "\u{1F9D8} Oddech 4-7-8, \u015Bwiat\u0142o off", m: 3 }];
 const ROUT_M_MIN = ROUT_M.reduce((a, x) => a + x.m, 0), ROUT_E_MIN = ROUT_E.reduce((a, x) => a + x.m, 0);
 const ROUT_M_SHORT = ["m1", "m2", "m5"];
 const evKeyNow = () => {
@@ -1720,11 +1720,47 @@ function sleepPlan(events, k, alarms, daily) {
   const hours = bed != null ? (wakeOf(s1 === "Nocka" ? "Wolne" : s1) + (s1 === "Nocka" ? 120 : 0) + 1440 - bed) % 1440 / 60 : null;
   return { s0, s1, sp, wake, plannedWake, bed, routine, lastMeal, firstMeal, nap, dayNap, note, hours, sl, mShort, mMin, slept };
 }
+const CONF_CH = [
+  ["Nagraj 60 s o swoim dniu, ods\u0142uchaj \u2014 m\xF3w wolniej o 20%", 5],
+  ["Kontakt wzrokowy 3 s z ka\u017Cd\u0105 osob\u0105, z kt\xF3r\u0105 dzi\u015B rozmawiasz", 2],
+  ["Postawa szefa: 2 min wyprostowany + 10 min spaceru bez telefonu", 12],
+  ["Zagadaj do 1 nieznajomej osoby jednym pytaniem otwartym", 3],
+  ["Nagraj 60 s pitch SkupOS, ods\u0142uchaj, popraw jedn\u0105 rzecz", 8],
+  ["Zero \u201Eyyy\u201D i \u201Ejakby\u201D w pierwszych 3 rozmowach dnia", 2],
+  ["Daj 1 konkretny komplement (za czyn, nie wygl\u0105d)", 2],
+  ["G\u0142os: mruczenie/rezonans 3 min + czytanie na g\u0142os z intonacj\u0105 3 min", 6],
+  ["Pierwszy telefon do skupu zaraz po rozgrzewce \u2014 zanim poczujesz gotowo\u015B\u0107", 5],
+  ["Pauza 2 s przed ka\u017Cd\u0105 odpowiedzi\u0105 \u2014 ca\u0142y dzie\u0144", 2],
+  ["Opowiedz komu\u015B histori\u0119 w 60 s: pocz\u0105tek \u2192 problem \u2192 rozwi\u0105zanie", 3],
+  ["Odm\xF3w czego\u015B spokojnie, bez t\u0142umaczenia si\u0119", 2],
+  ["W rozmowach: 70% s\u0142uchasz, 30% m\xF3wisz, zadajesz pytania", 2],
+  ["Nagraj swoj\u0105 stron\u0119 rozmowy telefonicznej i oce\u0144 ton 1\u201310", 8],
+  ["Prezentacja SkupOS przed lustrem, 3 min", 5],
+  ["Popro\u015B o feedback: \u201Eco m\xF3g\u0142bym robi\u0107 lepiej?\u201D", 3],
+  ["Witaj si\u0119 pierwszy z ka\u017Cdym, do kogo wchodzisz", 2],
+  ["G\u0142os z przepony: 5 min czytania na stoj\u0105co, g\u0142o\u015Bniej ni\u017C zwykle", 5],
+  ["Popro\u015B skup wprost o 10-min prezentacj\u0119", 5],
+  ["Wypowiedz cen\u0119 \u201E449 z\u0142\u201D 5\xD7 patrz\u0105c w oczy (lustro), bez u\u015Bmiechu przepraszaj\u0105cego", 3],
+  ["Powiedz komu\u015B o swoim celu bez \u201Etylko\u201D i \u201Emo\u017Ce\u201D", 3],
+  ["Rozmowa z nieznajomym 3+ minuty", 5],
+  ["Nagraj 2-min wideo o SkupOS (nie publikuj), oce\u0144 mow\u0119 cia\u0142a", 10],
+  ["Obiekcja \u201Eza drogo\u201D \u2014 prze\u0107wicz odpowied\u017A na g\u0142os 5\xD7", 5],
+  ["Przejmij inicjatyw\u0119: zaproponuj konkretny plan (gdzie, kiedy, co)", 3],
+  ["Dzie\u0144 bez narzekania \u2014 zero", 1],
+  ["Popro\u015B klienta albo znajomego o polecenie", 3],
+  ["Nagraj 60 s i por\xF3wnaj z nagraniem z dnia 1 \u2014 zapisz r\xF3\u017Cnic\u0119", 8]
+];
+const CONF_EPOCH = "2026-11-23";
+const confOf = (k) => {
+  const n = Math.max(0, Math.round((/* @__PURE__ */ new Date(k + "T12:00:00") - /* @__PURE__ */ new Date(CONF_EPOCH + "T12:00:00")) / 864e5));
+  const c = CONF_CH[n % CONF_CH.length];
+  return { t: c[0], m: c[1], n: n % CONF_CH.length + 1 };
+};
 const BLOCK_PLAN = {
-  Wolne: [["deep", "\u{1F4BC} Deep work: SkupOS + telefony do skup\xF3w", "09:00", 120], ["trade", "\u{1F4C8} Trading: wykresy, plan, wej\u015Bcia", "11:15", 30], ["train", "\u{1F3CB}\uFE0F Trening PPL", "12:30", 75], ["learn", "\u{1F3AF} Nauka sprzeda\u017Cy i marketingu", "16:00", 45]],
-  "Popo\u0142udnie": [["deep", "\u{1F4BC} Deep work + telefony do skup\xF3w", "08:30", 90], ["train", "\u{1F3CB}\uFE0F Trening PPL", "10:15", 60], ["trade", "\u{1F4C8} Trading: wykresy i plan", "11:45", 20], ["learn", "\u{1F3AF} Nauka sprzeda\u017Cy (audiobook w aucie)", "14:00", 25]],
-  Ranka: [["read", "\u{1F3A7} Audiobook / podcast w drodze", "06:00", 25], ["med", "\u{1F9D8} Medytacja po powrocie (reset)", "15:40", 10], ["trade", "\u{1F4C8} Trading: wykresy i plan", "16:00", 20], ["deep", "\u{1F4BC} Deep work nad biznesem", "16:30", 60], ["learn", "\u{1F3AF} Nauka sprzeda\u017Cy i marketingu", "18:45", 25]],
-  Nocka: [["med", "\u{1F9D8} Medytacja przed drzemk\u0105", "15:15", 10], ["trade", "\u{1F4C8} Trading: szybki przegl\u0105d", "18:00", 20], ["learn", "\u{1F3A7} Audiobook o sprzeda\u017Cy w drodze", "22:00", 25]]
+  Wolne: [["conf", "", "08:45", 10], ["deep", "\u{1F4BC} Deep work: SkupOS + telefony do skup\xF3w", "09:00", 120], ["trade", "\u{1F4C8} Trading: wykresy, plan, wej\u015Bcia", "11:15", 30], ["train", "\u{1F3CB}\uFE0F Trening PPL", "12:30", 75], ["learn", "\u{1F3AF} Nauka sprzeda\u017Cy i marketingu", "16:00", 45]],
+  "Popo\u0142udnie": [["conf", "", "08:15", 10], ["deep", "\u{1F4BC} Deep work + telefony do skup\xF3w", "08:30", 90], ["train", "\u{1F3CB}\uFE0F Trening PPL", "10:15", 60], ["trade", "\u{1F4C8} Trading: wykresy i plan", "11:45", 20], ["learn", "\u{1F3AF} Nauka sprzeda\u017Cy (audiobook w aucie)", "14:00", 25]],
+  Ranka: [["read", "\u{1F3A7} Audiobook / podcast w drodze", "06:00", 25], ["med", "\u{1F9D8} Medytacja po powrocie (reset)", "15:40", 10], ["trade", "\u{1F4C8} Trading: wykresy i plan", "16:00", 20], ["conf", "", "16:20", 10], ["deep", "\u{1F4BC} Deep work nad biznesem", "16:30", 60], ["learn", "\u{1F3AF} Nauka sprzeda\u017Cy i marketingu", "18:45", 25]],
+  Nocka: [["conf", "", "17:40", 10], ["med", "\u{1F9D8} Medytacja przed drzemk\u0105", "15:15", 10], ["trade", "\u{1F4C8} Trading: szybki przegl\u0105d", "18:00", 20], ["learn", "\u{1F3A7} Audiobook o sprzeda\u017Cy w drodze", "22:00", 25]]
 };
 const blockStart = (spec, sp) => {
   const m = /^(wake|routine)([+-]\d+)?$/.exec(spec);
@@ -1746,12 +1782,20 @@ function dayItems(events, tasks, k, daily) {
   if (sp.bed != null) out.push({ kind: "bed", t0: sp.bed, t1: sp.bed, title: "\u{1F6CF}\uFE0F Sen" });
   if (!(sp.sp === "Nocka" && sp.s0 === "Nocka")) out.push({ kind: "meal", t0: sp.firstMeal, t1: sp.firstMeal, title: "\u{1F37D}\uFE0F Pierwszy posi\u0142ek (od)" });
   if (sp.lastMeal != null) out.push({ kind: "meal", t0: sp.lastMeal, t1: sp.lastMeal, title: sp.s0 === "Nocka" ? "\u{1F37D}\uFE0F Du\u017Cy posi\u0142ek przed nock\u0105 (do), w pracy tylko lekko" : "\u{1F37D}\uFE0F Ostatni posi\u0142ek (do)" });
+  const bo = ((daily || lsJSON("mp_daily_v4", {}))[k] || {}).bo || {};
   (BLOCK_PLAN[sh] || []).forEach(([id, title, st, min]) => {
-    if (sp.dayNap && sp.sp === "Nocka" && sh !== "Nocka" && (id === "deep" || id === "train") && sp.dayNap[1] > 600) {
+    const o = bo[id];
+    if (o === "skip" || o && o.skip) return;
+    if (id === "conf") {
+      const c = confOf(k);
+      title = `\u{1F4AC} Pewno\u015B\u0107 #${c.n}: ${c.t}`;
+      min = Math.max(5, c.m + 3);
     }
-    const t0 = blockStart(st, sp);
+    if (o && o.title) title = o.title;
+    const t0 = o && o.at ? hm2m(o.at) : blockStart(st, sp);
     if (t0 == null) return;
-    out.push({ kind: "block", t0, t1: t0 + min, title: `${title} (${min} min)`, bid: id });
+    if (o && o.min) min = +o.min;
+    out.push({ kind: "block", t0, t1: t0 + min, title: `${title} (${min} min)`, bid: id, moved: !!(o && o.at) });
   });
   (events || []).filter((e) => e.date === k && e.time && !/Ranka|Popołudnie|Nocka/.test(e.title || "")).forEach((e) => {
     const t0 = hm2m(e.time);
