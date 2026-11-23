@@ -6628,58 +6628,157 @@ const BP_SECTIONS = [
     { id: "ryzyko", n: "11. Analiza ryzyka", g: "Top 5 ryzyk (wolna sprzedaz, churn, konkurent, regulacje, zalezosc od jednej osoby) + plan ograniczenia kazdego. Banki i inwestorzy czytaja to uwaznie — pokazuje dojrzalosc." },
     { id: "kamienie", n: "12. Kamienie milowe", g: "Harmonogram z datami: gotowy produkt → pierwszy placacy klient → 10 klientow → break-even → skalowanie / sprzedaz firmy. Mierzalne cele z terminami. To Twoj plan egzekucji." },
 ];
+const BP_VENTURES = [
+  {
+    id: "trading",
+    e: "\u{1F4C8}",
+    n: "Trading",
+    sub: "Z\u0142oto \xB7 swing \xB7 konta prop",
+    ctx: "Trading: 5 lat na z\u0142ocie (XAUUSD), swing 500\u20131000 pips, ~4 trade'y/mies., R:R 1:7\u20131:10, cel WR 70%+, zaliczone FTMO 100k, plan drugiego konta prop, d\u0142ugoterminowo $2M na kontach finansowanych. S\u0142abo\u015B\u0107: impulsywne wej\u015Bcia na widok wybicia.",
+    secs: [
+      { id: "cel", n: "1. Cel i rola tradingu", g: "Ile ma Ci dawa\u0107 miesi\u0119cznie i do kiedy? Jak\u0105 rol\u0119 gra w planie (g\u0142\xF3wny doch\xF3d / most do wolno\u015Bci)? Gdzie chcesz by\u0107 31.12.2027 ($ na kontach, wyp\u0142aty/mies.)." },
+      { id: "system", n: "2. Tw\xF3j system", g: "Setupy, interwa\u0142y, warunki wej\u015Bcia i wyj\u015Bcia, R:R, oczekiwany WR, ile trade'\xF3w/mies. Spisz tak, \u017Ceby obcy cz\u0142owiek m\xF3g\u0142 go wykona\u0107." },
+      { id: "konta", n: "3. Konta i skalowanie", g: "Obecne konta (FTMO 100k), kolejne firmy prop, kolejno\u015B\u0107, warunki skalowania, wyp\u0142aty. Droga do $2M krok po kroku z datami." },
+      { id: "ryzyko", n: "4. Zasady ryzyka", g: "Ryzyko na trade (%), limity dzienne i ca\u0142kowite, ile strat z rz\u0119du = przerwa, kiedy NIE handlujesz (newsy, zm\u0119czenie po nocce)." },
+      { id: "proces", n: "5. Proces i dyscyplina", g: "Checklista przed wej\u015Bciem, dziennik (zak\u0142adka Trading), przegl\u0105d tygodniowy, co robisz po serii strat. Jak eliminujesz wej\u015Bcia impulsywne." },
+      { id: "kamienie", n: "6. Kamienie milowe", g: "Data \u2192 wynik. Np. drugie konto zaliczone do\u2026, pierwsza wyp\u0142ata do\u2026, 3 miesi\u0105ce na plusie do\u2026" },
+      { id: "zagrozenia", n: "7. Zagro\u017Cenia", g: "Seria strat, zmiana zasad firm prop, przepalenie przy dziecku i zmianach, nadmierna pewno\u015B\u0107 siebie. Plan na ka\u017Cde." }
+    ]
+  },
+  {
+    id: "skupos",
+    e: "\u267B\uFE0F",
+    n: "SkupOS",
+    sub: "SaaS dla skup\xF3w z\u0142omu",
+    ctx: "SkupOS: SaaS w abonamencie dla skup\xF3w z\u0142omu w Polsce (przyj\u0119cia, cennik, magazyn, dokumenty PCC-4, panel klienta, AI). Solo founder, model build\u2192sell\u2192repeat, cel \u0142\u0105cznie 10 mln z\u0142.",
+    secs: BP_SECTIONS,
+    legacy: true
+  },
+  {
+    id: "apps",
+    e: "\u{1F6E0}\uFE0F",
+    n: "Aplikacje online",
+    sub: "Build \u2192 sell \u2192 repeat",
+    ctx: "Tworzenie i sprzeda\u017C aplikacji online (PWA/SaaS, budowane z AI, solo). Model: zbuduj, zdob\u0105d\u017A przych\xF3d, sprzedaj (np. Acquire.com, Flippa), powt\xF3rz. Dotychczas: Rysik (dla \u015Blusarzy), Kasa (bud\u017Cet domowy), PIK, MasterPlan.",
+    secs: [
+      { id: "model", n: "1. Model i cel", g: "Ile aplikacji rocznie, jaki przych\xF3d z ka\u017Cdej przed sprzeda\u017C\u0105, po jakiej cenie sprzedajesz (zwykle 2\u20134\xD7 roczny zysk). Cel na 2027." },
+      { id: "nisze", n: "2. Wyb\xF3r niszy", g: "Kryteria: ludzie ju\u017C p\u0142ac\u0105 za rozwi\u0105zanie, mo\u017Cesz do nich dotrze\u0107, MVP w 2\u20134 tyg. Lista pomys\u0142\xF3w z ocen\u0105 1\u20135 w ka\u017Cdym kryterium." },
+      { id: "budowa", n: "3. Proces budowy", g: "Stack, ile tygodni na MVP, co robi AI, co Ty. Definicja \u201Egotowe do sprzeda\u017Cy\u201D." },
+      { id: "sprzedaz", n: "4. Sprzeda\u017C online", g: "Kana\u0142y: SEO, TikTok/YouTube shorts, grupy bran\u017Cowe, cold e-mail, marketplace'y, Product Hunt. Kt\xF3ry kana\u0142 do kt\xF3rej aplikacji i ile godzin tygodniowo." },
+      { id: "ceny", n: "5. Ceny i przych\xF3d", g: "Subskrypcja czy jednorazowo, progi cenowe, ile klient\xF3w do 1000 \u20AC/mies. MRR." },
+      { id: "exit", n: "6. Sprzeda\u017C aplikacji (exit)", g: "Gdzie sprzedajesz, jakie metryki musz\u0105 by\u0107 (MRR, wzrost, churn), jak przygotowa\u0107 dokumentacj\u0119 i przekazanie." },
+      { id: "kamienie", n: "7. Kamienie milowe", g: "Data \u2192 wynik: pierwsza p\u0142atno\u015B\u0107, 1000 \u20AC MRR, pierwsza sprzeda\u017C aplikacji." }
+    ]
+  },
+  {
+    id: "mp",
+    e: "\u{1F9ED}",
+    n: "MasterPlan jako produkt",
+    sub: "Osobisty system operacyjny z AI",
+    ctx: "MasterPlan jako produkt: PWA, osobisty system (trening PPL, dieta z zasadami, nawyki, finanse, dziennik tradera, Druga G\u0142owa \u2014 AI z pe\u0142nym kontekstem danych u\u017Cytkownika, praca zmianowa). Obecnie aplikacja jednego u\u017Cytkownika na GitHub Pages + Supabase.",
+    secs: [
+      { id: "kto", n: "1. Dla kogo dok\u0142adnie", g: "Jedna, w\u0105ska grupa na start (np. m\u0142odzi m\u0119\u017Cczy\u017Ani na drodze samorozwoju pracuj\u0105cy na zmiany, albo traderzy prop). Im w\u0119\u017Csza, tym \u0142atwiej wygra\u0107. Gdzie ich znajdziesz?" },
+      { id: "obietnica", n: "2. Problem i obietnica", g: "Jaki b\xF3l rozwi\u0105zujesz w jednym zdaniu? Co klient ma po 30 dniach? Dlaczego zap\u0142aci, skoro ma Notion i ChatGPT za darmo?" },
+      { id: "przewaga", n: "3. Przewaga (czego nikt nie ma)", g: "Co dok\u0142adnie jest nie do skopiowania w tydzie\u0144: AI, kt\xF3re zna CA\u0141E dane u\u017Cytkownika? Dopasowanie do grafiku zmianowego? Gotowe protoko\u0142y? B\u0105d\u017A brutalnie szczery." },
+      { id: "konkurencja", n: "4. Konkurencja", g: "Notion life OS, Habitica, Fabulous, Hevy/Strong, MyFitnessPal, coachowie AI, ChatGPT. Za co p\u0142ac\u0105 ich klienci i czego im brakuje." },
+      { id: "walidacja", n: "5. Walidacja przed budow\u0105", g: "Landing + lista oczekuj\u0105cych, 10\u201320 rozm\xF3w z grup\u0105 docelow\u0105, przedsprzeda\u017C. Liczba, przy kt\xF3rej m\xF3wisz \u201Ebudujemy\u201D (np. 50 zapis\xF3w, 10 przedp\u0142at)." },
+      { id: "technika", n: "6. Co trzeba dobudowa\u0107", g: "Konta wielu u\u017Cytkownik\xF3w, p\u0142atno\u015Bci (Stripe), backend, RODO i dane zdrowotne, koszty AI na u\u017Cytkownika, onboarding, wsparcie." },
+      { id: "gtm", n: "7. Cena i wej\u015Bcie na rynek", g: "Cena/mies., darmowy okres, pierwszy kana\u0142 (TikTok z Twoj\u0105 histori\u0105? spo\u0142eczno\u015Bci?), plan na pierwszych 100 p\u0142ac\u0105cych." },
+      { id: "kamienie", n: "8. Kamienie milowe", g: "Data \u2192 wynik: landing, 50 zapis\xF3w, beta z 10 osobami, pierwsza p\u0142atno\u015B\u0107." }
+    ]
+  }
+];
+const BP_STAGES = ["Pomys\u0142", "Walidacja", "Budowa", "Sprzeda\u017C", "Skalowanie", "Wstrzymany"];
+const bpVal = (bp, v, sid) => {
+  const o = bp.v && bp.v[v.id] || {};
+  if (o[sid] != null) return o[sid];
+  return v.legacy ? bp[sid] || "" : "";
+};
 function BiznesPlan({ bizplan, setBizplan }) {
-    const [busyId, setBusyId] = useState(null);
-    const [drafts, setDrafts] = useState({});
-    const setSec = (id, v) => setBizplan((p) => ({ ...p, [id]: v }));
-    const filled = BP_SECTIONS.filter((s) => (bizplan[s.id] || "").trim().length > 30).length;
-    const hasKey = !!localStorage.getItem("mp_ai_key");
-    const help = async (s) => {
-        if (busyId)
-            return;
-        setBusyId(s.id);
-        const cur = (bizplan[s.id] || "").trim();
-        const res = await askDG("Piszemy biznesplan mojej firmy: SkupOS - SaaS w abonamencie dla skupow zlomu w Polsce (przyjecia towaru, cennik, magazyn, dokumenty PCC-4, panel klienta, AI). Solo founder, cel: zbudowac i sprzedac za lacznie 10 mln zl. Sekcja: " + s.n + ". Zakres: " + s.g + (cur ? " Moj szkic: \"" + cur.slice(0, 900) + "\"." : " Nie mam jeszcze szkicu.") + " Napisz zwarta, profesjonalna tresc TEJ sekcji po polsku: konkret, liczby gdzie sie da, zero lania wody. Gdzie brakuje danych, wstaw [UZUPELNIJ: co]. Zwroc sam tekst sekcji, bez naglowka.", 900);
-        setDrafts((p) => ({ ...p, [s.id]: res.text }));
-        setBusyId(null);
-        buzz(8);
-    };
-    const exportMd = () => {
-        const md = "# BIZNESPLAN - SkupOS\n\n_Wygenerowano z MasterPlan, " + todayKey() + "_\n\n" + BP_SECTIONS.map((s) => "## " + s.n + "\n\n" + ((bizplan[s.id] || "").trim() || "_(do uzupelnienia)_") + "\n").join("\n");
-        const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = "BiznesPlan-SkupOS.md";
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-        buzz(10);
-    };
-    return (React.createElement("div", null,
-        React.createElement("header", { style: { paddingTop: 26 } },
-            React.createElement("h1", { style: { margin: 0, fontFamily: "var(--display)", fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" } }, "Biznes Plan \uD83D\uDCCB"),
-            React.createElement("div", { style: { color: "var(--muted)", fontSize: 13, marginTop: 4, lineHeight: 1.5 } }, "12 sekcji kompletnego, profesjonalnego biznesplanu. Wypelniaj po kolei \u2014 streszczenie na koncu, gdy reszta gotowa.")),
-        React.createElement(Card, { style: { marginTop: 16 } },
-            React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 7 } },
-                React.createElement("span", { style: { fontWeight: 700, fontSize: 14 } }, "Postep"),
-                React.createElement("span", { style: { fontSize: 12.5, color: "var(--muted)" } },
-                    React.createElement("b", { style: { color: "var(--gold2)", fontFamily: "var(--display)" } }, filled),
-                    " / ",
-                    BP_SECTIONS.length,
-                    " sekcji")),
-            React.createElement(Bar, { pct: (filled / BP_SECTIONS.length) * 100, color: "var(--gold)", h: 8 }),
-            React.createElement("button", { onClick: exportMd, style: { ...btnPrimary, marginTop: 12 } }, "\u2B07\uFE0F Eksportuj plan (.md)")),
-        BP_SECTIONS.map((s) => (React.createElement(Card, { key: s.id, style: { marginTop: 11 } },
-            React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 700, fontSize: 14.5, marginBottom: 5 } }, s.n),
-            React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5, marginBottom: 9 } }, s.g),
-            React.createElement("textarea", { value: bizplan[s.id] || "", onChange: (e) => setSec(s.id, e.target.value), placeholder: "Twoja tresc tej sekcji...", style: { ...inputStyle, width: "100%", minHeight: 84, resize: "vertical", lineHeight: 1.5, fontFamily: "var(--body)", fontSize: 13 } }),
-            hasKey && (React.createElement("button", { onClick: () => help(s), disabled: !!busyId, style: { marginTop: 8, padding: "9px 12px", borderRadius: 11, border: "1px solid var(--line2)", background: "rgba(245,181,61,.1)", color: "var(--gold2)", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: busyId ? 0.6 : 1 } }, busyId === s.id ? "Pisze..." : "🧠 Napisz z Druga Glowa")),
-            drafts[s.id] && (React.createElement("div", { style: { marginTop: 10, padding: "11px 12px", borderRadius: 12, background: "rgba(245,181,61,.07)", border: "1px solid rgba(245,181,61,.2)" } },
-                React.createElement("div", { style: { fontSize: 12.5, lineHeight: 1.55, whiteSpace: "pre-wrap" } }, drafts[s.id]),
-                React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 9 } },
-                    React.createElement("button", { onClick: () => { setSec(s.id, drafts[s.id]); setDrafts((p) => { const q = { ...p }; delete q[s.id]; return q; }); buzz(8); }, style: { flex: 1, padding: "9px 8px", borderRadius: 10, border: "none", background: "var(--green)", color: "#08130c", fontSize: 12, fontWeight: 800, cursor: "pointer" } }, "Wstaw do sekcji"),
-                    React.createElement("button", { onClick: () => setDrafts((p) => { const q = { ...p }; delete q[s.id]; return q; }), style: { flex: 1, padding: "9px 8px", borderRadius: 10, border: "1px solid var(--line2)", background: "transparent", color: "var(--faint)", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, "Odrzuc"))))))),
-        React.createElement("div", { style: { fontSize: 11, color: "var(--faint)", textAlign: "center", margin: "14px 6px 24px", lineHeight: 1.5 } }, "Wersje od AI to szkice \u2014 liczby i zalozenia zweryfikuj sam, zanim pokazesz plan bankowi, partnerowi czy inwestorowi.")));
+  const bp = bizplan || {};
+  const [view, setView] = useState("map");
+  const [busyId, setBusyId] = useState(null);
+  const [drafts, setDrafts] = useState({});
+  const meta = bp.meta || {};
+  const order = (bp.order && bp.order.length ? bp.order : BP_VENTURES.map((v) => v.id)).filter((id) => BP_VENTURES.some((v) => v.id === id));
+  const setMeta = (vid, patch) => setBizplan((p) => ({ ...p, meta: { ...p.meta || {}, [vid]: { ...(p.meta || {})[vid] || {}, ...patch } } }));
+  const setSec = (vid, sid, val) => setBizplan((p) => ({ ...p, v: { ...p.v || {}, [vid]: { ...(p.v || {})[vid] || {}, [sid]: val } } }));
+  const move = (vid, d) => setBizplan((p) => {
+    const o = [...order];
+    const i = o.indexOf(vid);
+    const j = i + d;
+    if (j < 0 || j >= o.length) return p;
+    [o[i], o[j]] = [o[j], o[i]];
+    return { ...p, order: o };
+  });
+  const hasKey = !!localStorage.getItem("mp_ai_key");
+  const hoursAvail = num(bp.hours) || 15;
+  const active = order.filter((id) => (meta[id] || {}).stage !== "Wstrzymany");
+  const hoursUsed = active.reduce((s, id) => s + (num((meta[id] || {}).h) || 0), 0);
+  const filledOf = (v) => v.secs.filter((s) => (bpVal(bp, v, s.id) || "").trim().length > 30).length;
+  const T = lsJSON("mp_trades_v1", null);
+  const tradeKpi = (() => {
+    if (!T) return null;
+    const cl = (T.trades || []).filter((t) => t.status === "closed" && (t.closedAt || t.date) >= keyOf(new Date(Date.now() - 30 * 864e5)));
+    const Rs = cl.map((t) => tradeCalc(t).R).filter((r) => r != null);
+    return `30 dni: ${Rs.reduce((a, b) => a + b, 0).toFixed(1)}R \xB7 ${Rs.length} trade'\xF3w`;
+  })();
+  const help = async (v, s) => {
+    if (busyId) return;
+    setBusyId(v.id + s.id);
+    const cur2 = (bpVal(bp, v, s.id) || "").trim();
+    const res = await askDG("Piszemy plan projektu. Kontekst: " + v.ctx + " Wizja na koniec 2027: " + (bp.vision || "(brak)") + ". Sekcja: " + s.n + ". Zakres: " + s.g + (cur2 ? ' M\xF3j szkic: "' + cur2.slice(0, 1500) + '". Popraw i uzupe\u0142nij.' : " Napisz konkretny szkic.") + " Pisz po polsku, konkretnie, z liczbami tam gdzie si\u0119 da, max 180 s\u0142\xF3w. B\u0105d\u017A szczery \u2014 je\u015Bli co\u015B jest nierealne, napisz to.", 900);
+    setDrafts((p) => ({ ...p, [v.id + s.id]: res.text }));
+    setBusyId(null);
+    buzz(8);
+  };
+  const exportMd = () => {
+    const md = "# PLAN 2027 \u2014 Wojciech\n\n_MasterPlan, " + todayKey() + "_\n\n## Wizja 31.12.2027\n\n" + (bp.vision || "_(do uzupe\u0142nienia)_") + "\n\n" + order.map((id, i) => {
+      const v = BP_VENTURES.find((x) => x.id === id);
+      const m = meta[id] || {};
+      return `# ${i + 1}. ${v.n}
+
+Etap: ${m.stage || "Pomys\u0142"} \xB7 ${m.h || 0} h/tydz. \xB7 KPI: ${m.kpi || "\u2014"} (cel ${m.goal || "\u2014"}, teraz ${m.now || "\u2014"})
+Nast\u0119pny krok: ${m.next || "\u2014"}
+
+` + v.secs.map((s) => "## " + s.n + "\n\n" + ((bpVal(bp, v, s.id) || "").trim() || "_(do uzupe\u0142nienia)_") + "\n").join("\n");
+    }).join("\n");
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "Plan-2027.md";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2e3);
+    buzz(10);
+  };
+  const ta = { ...inputStyle, width: "100%", minHeight: 84, resize: "vertical", lineHeight: 1.5, fontFamily: "var(--body)", fontSize: 13 };
+  const small = { ...inputStyle, padding: "8px 10px", fontSize: 13 };
+  const cur = BP_VENTURES.find((v) => v.id === view);
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("header", { style: { paddingTop: 26 } }, /* @__PURE__ */ React.createElement("h1", { style: { margin: 0, fontFamily: "var(--display)", fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" } }, "Biznes Plan \u{1F4CB}"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--muted)", fontSize: 13, marginTop: 4, lineHeight: 1.5 } }, "Mapa projekt\xF3w + plan dla ka\u017Cdego. My\u015Bl w zeszycie, tu zapisuj ustalenia i liczby.")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 14, overflowX: "auto" }, className: "noscroll" }, [["map", "\u{1F5FA}\uFE0F Mapa"], ...order.map((id) => {
+    const v = BP_VENTURES.find((x) => x.id === id);
+    return [id, `${v.e} ${v.n}`];
+  })].map(([id, l]) => /* @__PURE__ */ React.createElement("button", { key: id, onClick: () => setView(id), style: { flexShrink: 0, padding: "8px 12px", borderRadius: 11, cursor: "pointer", fontSize: 13, fontWeight: 700, border: view === id ? "1.5px solid var(--gold)" : "1px solid var(--line2)", background: view === id ? "rgba(245,181,61,.12)" : "var(--surface)", color: view === id ? "var(--gold2)" : "var(--muted)" } }, l))), view === "map" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 700, fontSize: 15 } }, "Wizja: 31.12.2027"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)", margin: "4px 0 8px", lineHeight: 1.45 } }, "Konkretnie: ile zarabiasz i z czego, ile masz oszcz\u0119dno\u015Bci, gdzie mieszkasz, jak wygl\u0105da Tw\xF3j dzie\u0144, rodzina, cia\u0142o."), /* @__PURE__ */ React.createElement("textarea", { value: bp.vision || "", onChange: (e) => setBizplan((p) => ({ ...p, vision: e.target.value })), placeholder: "31 grudnia 2027 jestem\u2026", style: ta })), /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 10, border: hoursUsed > hoursAvail ? "1px solid var(--red)" : void 0 }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13.5, fontWeight: 700 } }, "Czas na projekty: ", hoursUsed, " / ", hoursAvail, " h tygodniowo"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: hoursUsed > hoursAvail ? "var(--red)" : active.length > 2 ? "var(--amber)" : "var(--muted)", marginTop: 3 } }, hoursUsed > hoursAvail ? "Planujesz wi\u0119cej, ni\u017C masz czasu \u2014 co\u015B wstrzymaj." : active.length > 2 ? `${active.length} aktywne projekty. Zasada: 1 g\u0142\xF3wny + 1 poboczny, reszta \u201EWstrzymany\u201D.` : "Dobrze: fokus na maks. 2 projektach.")), /* @__PURE__ */ React.createElement("label", { style: { fontSize: 11, color: "var(--muted)", textAlign: "center" } }, "Masz h/tydz.", /* @__PURE__ */ React.createElement("input", { inputMode: "numeric", value: bp.hours ?? "", placeholder: "15", onChange: (e) => setBizplan((p) => ({ ...p, hours: e.target.value })), style: { ...small, width: 64, textAlign: "center", marginTop: 4 } })))), /* @__PURE__ */ React.createElement("div", { style: sectionTitle }, "Projekty \u2014 kolejno\u015B\u0107 = priorytet"), order.map((id, i) => {
+    const v = BP_VENTURES.find((x) => x.id === id);
+    const m = meta[id] || {};
+    const paused = m.stage === "Wstrzymany";
+    return /* @__PURE__ */ React.createElement(Card, { key: id, style: { marginBottom: 10, opacity: paused ? 0.6 : 1, border: i === 0 && !paused ? "1px solid rgba(245,181,61,.5)" : void 0 }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 24 } }, v.e), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 }, onClick: () => setView(id) }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 800, fontSize: 15, cursor: "pointer" } }, i === 0 && !paused ? "\u2605 " : "", v.n), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)" } }, v.sub, " \xB7 plan ", filledOf(v), "/", v.secs.length, id === "trading" && tradeKpi ? ` \xB7 ${tradeKpi}` : "")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 3 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => move(id, -1), style: { ...iconBtn, width: 28, height: 22, fontSize: 11 } }, "\u25B2"), /* @__PURE__ */ React.createElement("button", { onClick: () => move(id, 1), style: { ...iconBtn, width: 28, height: 22, fontSize: 11 } }, "\u25BC"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap", marginTop: 10 } }, BP_STAGES.map((s) => /* @__PURE__ */ React.createElement("button", { key: s, onClick: () => setMeta(id, { stage: s }), style: { padding: "5px 9px", borderRadius: 8, cursor: "pointer", fontSize: 11.5, fontWeight: 700, border: (m.stage || "Pomys\u0142") === s ? "1.5px solid var(--green)" : "1px solid var(--line2)", background: (m.stage || "Pomys\u0142") === s ? "rgba(34,197,94,.1)" : "var(--surface2)", color: (m.stage || "Pomys\u0142") === s ? "var(--green2)" : "var(--muted)" } }, s))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "2fr 1fr 1fr 64px", gap: 6, marginTop: 10 } }, /* @__PURE__ */ React.createElement("input", { value: m.kpi || "", placeholder: "KPI (np. MRR \u20AC)", onChange: (e) => setMeta(id, { kpi: e.target.value }), style: small }), /* @__PURE__ */ React.createElement("input", { value: m.goal || "", placeholder: "Cel", onChange: (e) => setMeta(id, { goal: e.target.value }), style: small }), /* @__PURE__ */ React.createElement("input", { value: m.now || "", placeholder: "Teraz", onChange: (e) => setMeta(id, { now: e.target.value }), style: small }), /* @__PURE__ */ React.createElement("input", { inputMode: "numeric", value: m.h || "", placeholder: "h/tydz", onChange: (e) => setMeta(id, { h: e.target.value }), style: { ...small, textAlign: "center" } })), /* @__PURE__ */ React.createElement("input", { value: m.next || "", placeholder: "\u279C Nast\u0119pny konkretny krok (do ko\u0144ca tygodnia)", onChange: (e) => setMeta(id, { next: e.target.value }), style: { ...small, width: "100%", marginTop: 6 } }));
+  }), /* @__PURE__ */ React.createElement("button", { onClick: exportMd, style: { ...btnPrimary, marginTop: 6 } }, "\u2B07\uFE0F Eksportuj ca\u0142y plan (.md)")), cur && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 12 }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 7 } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 700, fontSize: 14 } }, cur.e, " ", cur.n), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12.5, color: "var(--muted)" } }, /* @__PURE__ */ React.createElement("b", { style: { color: "var(--gold2)" } }, filledOf(cur)), " / ", cur.secs.length, " sekcji")), /* @__PURE__ */ React.createElement(Bar, { pct: filledOf(cur) / cur.secs.length * 100, color: "var(--gold)", h: 8 }), cur.id === "trading" && tradeKpi && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 8 } }, "Z dziennika: ", tradeKpi)), cur.secs.map((s) => {
+    const key = cur.id + s.id;
+    return /* @__PURE__ */ React.createElement(Card, { key, style: { marginTop: 11 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 700, fontSize: 14.5, marginBottom: 5 } }, s.n), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)", lineHeight: 1.5, marginBottom: 9 } }, s.g), /* @__PURE__ */ React.createElement("textarea", { value: bpVal(bp, cur, s.id), onChange: (e) => setSec(cur.id, s.id, e.target.value), placeholder: "Twoja tre\u015B\u0107\u2026", style: ta }), hasKey && /* @__PURE__ */ React.createElement("button", { onClick: () => help(cur, s), disabled: !!busyId, style: { marginTop: 8, padding: "9px 12px", borderRadius: 11, border: "1px solid var(--line2)", background: "rgba(245,181,61,.1)", color: "var(--gold2)", fontSize: 12, fontWeight: 700, cursor: "pointer", opacity: busyId ? 0.6 : 1 } }, busyId === key ? "Druga G\u0142owa pisze\u2026" : "\u{1F9E0} Pom\xF3\u017C mi z t\u0105 sekcj\u0105"), drafts[key] && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, padding: "11px 12px", borderRadius: 12, background: "rgba(245,181,61,.07)", border: "1px solid rgba(245,181,61,.2)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, lineHeight: 1.55, whiteSpace: "pre-wrap" } }, drafts[key]), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 9 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
+      setSec(cur.id, s.id, drafts[key]);
+      setDrafts((p) => {
+        const q = { ...p };
+        delete q[key];
+        return q;
+      });
+    }, style: { flex: 1, padding: "9px 8px", borderRadius: 10, border: "none", background: "var(--green)", color: "#08130c", fontSize: 12, fontWeight: 800, cursor: "pointer" } }, "Wstaw"), /* @__PURE__ */ React.createElement("button", { onClick: () => setDrafts((p) => {
+      const q = { ...p };
+      delete q[key];
+      return q;
+    }), style: { flex: 1, padding: "9px 8px", borderRadius: 10, border: "1px solid var(--line2)", background: "transparent", color: "var(--faint)", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, "Odrzu\u0107"))));
+  }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--faint)", textAlign: "center", margin: "14px 6px 24px", lineHeight: 1.5 } }, "Szkice od AI to punkt wyj\u015Bcia \u2014 liczby i za\u0142o\u017Cenia sprawd\u017A sam.")));
 }
+
 function DailyJournal({ journal, setJournal }) {
     const tk = todayKey();
     const entry = journal[tk] || {};
