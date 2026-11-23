@@ -210,7 +210,9 @@ const SYNC_SQL = `create table if not exists mp_state (
 );
 alter table mp_state enable row level security;
 create policy "mp_own" on mp_state for all
-  using (auth.uid() = user_id) with check (auth.uid() = user_id);`;
+  using (auth.uid() = user_id) with check (auth.uid() = user_id);
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on table mp_state to authenticated;`;
 const lsGet = (k) => {
   try {
     return localStorage.getItem(k);
