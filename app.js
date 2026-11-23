@@ -4054,9 +4054,10 @@ const mealsFor = (wd) => {
     { id: "m3", name: "Koktajl", hint: "druga po\u0142owa zmiany", items: [["milk", 400], ["cream", 80], ["yog", 150], ["banana", 1], ["honey", 20]] }
   ];
 };
+const PROT_FULL = { ribeye: 1, liver: 1, salmon: 1, mackerel: 1, egg: 1, cheese: 1, yog: 1 };
 const stageG = (key, g, mult) => {
   const it = PF[key];
-  const v = g * mult;
+  const v = PROT_FULL[key] ? g : g * mult;
   return it.u === "szt" ? Math.max(1, Math.round(v)) : Math.round(v / 5) * 5;
 };
 const macroOf = (key, qty) => {
@@ -4249,7 +4250,9 @@ const buildAutoShop = (daily, mult, store) => {
     const hint = SHOP_HINT[key] ? ` (${SHOP_HINT[key](q)})` : "";
     return { id: `auto_${key}`, name: `\u{1F4CB} ${it.n} \u2014 ${fmtQty(q, it.u)}${hint}`, store, done: false, auto: true };
   });
-  return { win: w.start, items };
+  let kc = 0, pr = 0;
+  Object.entries(tot).forEach(([key, q]) => { const m = macroOf(key, q); kc += m.kcal; pr += m.p; });
+  return { win: w.start, items, kcal: Math.round(kc), p: Math.round(pr) };
 };
 const mergeAutoShop = (shopping, built, force) => {
   const sameWin = shopping.autoWin === built.win;
@@ -4268,7 +4271,7 @@ function AutoShopBar({ shopping, setShopping, daily, diet }) {
     buzz(8);
     setShopping((p) => mergeAutoShop(p, buildAutoShop(daily, mult, (p.stores || [])[0] || "Sklep"), true));
   };
-  return /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 14 }, pad: 12 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13.5, fontWeight: 800 } }, "\u{1F4CB} Lista z planu diety"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)", marginTop: 2 } }, "Na ", fmt(w.days[0]), "\u2013", fmt(w.days[2]), " \xB7 nowa lista ", fmt(w.next), " \xB7 etap ", diet.stage || 1)), /* @__PURE__ */ React.createElement("button", { onClick: refresh, style: { ...iconBtn, width: "auto", padding: "0 12px", fontSize: 12, fontWeight: 700, color: "var(--green2)" } }, "Od\u015Bwie\u017C")));
+  return /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 14 }, pad: 12 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13.5, fontWeight: 800 } }, "\u{1F4CB} Lista z planu diety"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)", marginTop: 2 } }, "Na ", fmt(w.days[0]), "\u2013", fmt(w.days[2]), " \xB7 nowa lista ", fmt(w.next), " \xB7 etap ", diet.stage || 1), (() => { const b = buildAutoShop(daily, mult, ""); return /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--green2)", marginTop: 3, fontWeight: 700 } }, "3 dni = ", b.kcal.toLocaleString("pl-PL"), " kcal \xB7 ", b.p, " g bia\u0142ka (\u2248 ", Math.round(b.kcal / 3), " kcal / ", Math.round(b.p / 3), " g dziennie)"); })()), /* @__PURE__ */ React.createElement("button", { onClick: refresh, style: { ...iconBtn, width: "auto", padding: "0 12px", fontSize: 12, fontWeight: 700, color: "var(--green2)" } }, "Od\u015Bwie\u017C")));
 }
 
 
