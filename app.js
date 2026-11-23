@@ -1317,6 +1317,13 @@ export default function App() {
         save("mp_tasks_v1", tasks); }, [tasks, ready]);
     useEffect(() => { if (ready)
         save("mp_finance_v1", finance); }, [finance, ready]);
+    useEffect(() => {
+        if (!ready) return;
+        const chk = () => setFinance((f) => { const t = salaryPostFor(f); return t ? { ...f, tx: [t, ...(f.tx || [])] } : f; });
+        chk();
+        const iv = setInterval(chk, 30 * 60e3);
+        return () => clearInterval(iv);
+    }, [ready, finance.salary]);
     useEffect(() => { if (ready)
         save("mp_events_v1", events); }, [events, ready]);
     useEffect(() => { if (ready)
@@ -2426,6 +2433,46 @@ function Habits({ habits, setHabits, supps, setSupps, day, toggleHabit, toggleSu
                 React.createElement("button", { style: btnPrimary, onClick: addSupp }, "Dodaj suplement"))))));
 }
 /* ───────────────────────── FINANCE ───────────────────────── */
+const salaryPostFor = (f, now) => {
+  const s = f.salary;
+  if (!s || !(num(s.amount) > 0)) return null;
+  const d = now || /* @__PURE__ */ new Date();
+  const day = Math.min(28, Math.max(1, num(s.day) || 25));
+  if (d.getDate() < day) return null;
+  const m = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+  if (s.from && m < s.from) return null;
+  const id = "sal_" + m;
+  if ((f.tx || []).some((t) => t.id === id) || (s.skip || []).includes(m)) return null;
+  return { id, type: "income", amount: num(s.amount), note: s.note || "Wyp\u0142ata (Mauser)", date: `${m}-${pad(day)}`, cat: null, inc: s.inc || ((f.income || [])[0] || {}).id || null, src: "salary" };
+};
+function SalaryCard({ finance, setFinance }) {
+  const s = finance.salary || {};
+  const [open, setOpen] = useState(false);
+  const [amt, setAmt] = useState(s.amount != null ? String(s.amount) : "");
+  const [day, setDay] = useState(String(s.day || 25));
+  const [inc, setInc] = useState(s.inc || ((finance.income || [])[0] || {}).id || "");
+  const now = /* @__PURE__ */ new Date();
+  const d = Math.min(28, Math.max(1, num(s.day) || 25));
+  const m = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+  const posted = (finance.tx || []).find((t) => t.id === "sal_" + m);
+  const next = now.getDate() < d ? new Date(now.getFullYear(), now.getMonth(), d) : new Date(now.getFullYear(), now.getMonth() + 1, d);
+  const days = Math.ceil((next - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 864e5);
+  const has = num(s.amount) > 0;
+  const saveS = () => {
+    const a = num(amt);
+    setFinance((f) => {
+      const sal = { ...f.salary || {}, amount: a || 0, day: Math.min(28, Math.max(1, num(day) || 25)), inc, note: "Wyp\u0142ata (Mauser)", from: (f.salary || {}).from || m };
+      let nf = { ...f, salary: sal };
+      const t = salaryPostFor(nf);
+      if (t) nf = { ...nf, tx: [t, ...nf.tx || []] };
+      return nf;
+    });
+    setOpen(false);
+    buzz(10);
+  };
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 16, background: "rgba(245,181,61,.07)", border: "1px solid rgba(245,181,61,.25)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 40, height: 40, borderRadius: 11, background: "rgba(245,181,61,.15)", display: "grid", placeItems: "center", flexShrink: 0, fontSize: 19 } }, "\u{1F4B6}"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13.5, fontWeight: 700, color: "var(--gold)" } }, "Wyp\u0142ata ", d, ". dnia miesi\u0105ca"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)", marginTop: 1 } }, !has ? "Ustaw kwot\u0119 netto \u2014 wpisze si\u0119 sama co miesi\u0105c" : posted ? `\u2713 zaksi\u0119gowana ${posted.date} \xB7 nast\u0119pna za ${days} dni` : `wpisze si\u0119 sama za ${days} ${days === 1 ? "dzie\u0144" : "dni"}`)), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 800, fontSize: 20, color: "var(--gold2)" } }, has ? "\u20AC" + Math.round(num(s.amount)) : "\u2014"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--muted)" } }, "netto"))), /* @__PURE__ */ React.createElement("button", { onClick: () => setOpen(true), style: { width: "100%", marginTop: 11, padding: "9px", borderRadius: 10, border: "1px solid rgba(245,181,61,.3)", background: "transparent", color: "var(--gold)", fontWeight: 700, fontSize: 12.5, cursor: "pointer" } }, has ? "Zmie\u0144 kwot\u0119 / dzie\u0144" : "Ustaw wyp\u0142at\u0119"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--faint)", marginTop: 8, lineHeight: 1.45 } }, "Nadgodziny, premie i inne nadwy\u017Cki dopisujesz r\u0119cznie jako przych\xF3d.")), /* @__PURE__ */ React.createElement(Sheet, { open, onClose: () => setOpen(false), title: "Miesi\u0119czna wyp\u0142ata" }, /* @__PURE__ */ React.createElement("label", { style: { fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 6 } }, "Kwota netto na konto (\u20AC)"), /* @__PURE__ */ React.createElement("input", { inputMode: "decimal", value: amt, onChange: (e) => setAmt(e.target.value), placeholder: String(Math.round(finance.capital || 0)), style: { ...inputStyle, fontFamily: "var(--display)", fontWeight: 700, fontSize: 18 } }), /* @__PURE__ */ React.createElement("label", { style: { fontSize: 12, color: "var(--muted)", display: "block", margin: "12px 0 6px" } }, "Dzie\u0144 wyp\u0142aty"), /* @__PURE__ */ React.createElement("input", { inputMode: "numeric", value: day, onChange: (e) => setDay(e.target.value), style: inputStyle }), (finance.income || []).length > 1 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("label", { style: { fontSize: 12, color: "var(--muted)", display: "block", margin: "12px 0 6px" } }, "\u0179r\xF3d\u0142o przychodu"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } }, (finance.income || []).map((c) => /* @__PURE__ */ React.createElement("button", { key: c.id, onClick: () => setInc(c.id), style: { padding: "8px 11px", borderRadius: 10, cursor: "pointer", fontSize: 12.5, fontWeight: 700, border: inc === c.id ? "1.5px solid var(--gold)" : "1px solid var(--line2)", background: inc === c.id ? "rgba(245,181,61,.12)" : "var(--surface)", color: inc === c.id ? "var(--gold2)" : "var(--text)" } }, c.name)))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--faint)", marginTop: 12, lineHeight: 1.5 } }, "Co miesi\u0105c, od tego dnia, aplikacja sama dopisze przych\xF3d \u201EWyp\u0142ata (Mauser)\u201D. Je\u015Bli dzi\u015B jest ju\u017C po dniu wyp\u0142aty, wpisze j\u0105 od razu za ten miesi\u0105c. Usuni\u0119ta r\u0119cznie wyp\u0142ata nie wr\xF3ci w tym miesi\u0105cu."), /* @__PURE__ */ React.createElement("button", { onClick: saveS, style: btnPrimary }, "Zapisz")));
+}
+
 function Money({ finance, setFinance, events, setTab }) {
     const [addOpen, setAddOpen] = useState(false);
     const [type, setType] = useState("expense");
@@ -2589,7 +2636,7 @@ function Money({ finance, setFinance, events, setTab }) {
         setNote("");
         setAddOpen(false);
     };
-    const delTx = (id) => setFinance((p) => ({ ...p, tx: p.tx.filter((t) => t.id !== id) }));
+    const delTx = (id) => setFinance((p) => ({ ...p, tx: p.tx.filter((t) => t.id !== id), salary: String(id).indexOf("sal_") === 0 && p.salary ? { ...p.salary, skip: [...(p.salary.skip || []), id.slice(4)] } : p.salary }));
     const addToVault = () => { const v = parseFloat(vaultIn); if (isNaN(v) || v <= 0)
         return; setFinance((p) => ({ ...p, vault: (p.vault || 0) + v })); setVaultIn(""); setVaultOpen(false); buzz(8); };
     const toggleRoundUp = () => { setFinance((p) => ({ ...p, roundUp: !p.roundUp })); buzz(6); };
@@ -2644,28 +2691,7 @@ function Money({ finance, setFinance, events, setTab }) {
                 React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 700, fontSize: 15 } }, "Doradca finansowy AI"),
                 React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 1 } }, "Druga G\u0142owa zna Tw\u00F3j bud\u017Cet \u2014 pytaj o oszcz\u0119dzanie i inwestycje.")),
             React.createElement("span", { style: { color: "var(--faint)", fontSize: 18 } }, "\u2192")),
-        React.createElement(Card, { style: { marginTop: 16, background: "rgba(245,181,61,.07)", border: "1px solid rgba(245,181,61,.25)" } },
-            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12 } },
-                React.createElement("div", { style: { width: 40, height: 40, borderRadius: 11, background: "rgba(245,181,61,.15)", display: "grid", placeItems: "center", flexShrink: 0 } },
-                    React.createElement(Coins, { size: 20, color: "var(--gold)" })),
-                React.createElement("div", { style: { flex: 1 } },
-                    React.createElement("div", { style: { fontSize: 13.5, fontWeight: 700, color: "var(--gold)" } }, "Wyp\u0142ata w czwartek"),
-                    React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)", marginTop: 1 } },
-                        nextThurLabel,
-                        " \u00B7 ",
-                        autoWorkDays,
-                        " dni z grafiku")),
-                React.createElement("div", { style: { textAlign: "right" } },
-                    React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 800, fontSize: 20, color: "var(--gold2)" } },
-                        "\u20AC",
-                        Math.round(totalBoth)),
-                    React.createElement("div", { style: { fontSize: 10.5, color: "var(--muted)" } }, "razem"))),
-            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 12 } }, [["Ty", Math.round(myTotal)], ["Ona", Math.round(herTotal)], ["Łącznie", Math.round(totalBoth)]].map(([lbl, val]) => (React.createElement("div", { key: lbl, style: { background: "var(--surface2)", borderRadius: 10, padding: "9px 8px", textAlign: "center" } },
-                React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 800, fontSize: 16, color: lbl === "Łącznie" ? "var(--gold2)" : "var(--text)" } },
-                    "\u20AC",
-                    val),
-                React.createElement("div", { style: { fontSize: 10.5, color: "var(--muted)", marginTop: 2 } }, lbl))))),
-            React.createElement("button", { onClick: () => setSalOpen(true), style: { width: "100%", marginTop: 11, padding: "9px", borderRadius: 10, border: "1px solid rgba(245,181,61,.3)", background: "transparent", color: "var(--gold)", fontWeight: 700, fontSize: 12.5, cursor: "pointer" } }, "+ Dodaj extra dni i paliwo")),
+        React.createElement(SalaryCard, { finance, setFinance }),
         React.createElement(Sheet, { open: salOpen, onClose: () => setSalOpen(false), title: "Kalkulator wyp\u0142aty" },
             React.createElement(Card, { style: { background: "rgba(245,181,61,.07)", border: "1px solid rgba(245,181,61,.2)" } },
                 React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginBottom: 6 } },
