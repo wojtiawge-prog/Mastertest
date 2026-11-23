@@ -1547,7 +1547,7 @@ export default function App() {
                 tab === "train" && React.createElement(Train, { day, setDay, daily, timer, setTimer, startTimer, prs, setPrs }),
                 tab === "diet" && React.createElement(Diet, { diet, setDiet, shopping, setShopping, day, setDay, profile, supps, finance, setFinance, setToast, daily, setDayFor }),
                 tab === "habits" && React.createElement(Habits, { habits, setHabits, supps, setSupps, day, toggleHabit, toggleSupp }),
-                tab === "money" && React.createElement(Money, { finance, setFinance, events, setTab, setToast }),
+                tab === "money" && React.createElement(Money, { finance, setFinance, events, setTab, setToast, setShopping, daily, diet }),
                 tab === "testo" && React.createElement(Testo, null),
                 tab === "charisma" && React.createElement(Charisma, { charisma: charisma, setCharisma: setCharisma }),
                 tab === "saas" && React.createElement(SaasDashboard, { saasData: saasData, setSaasData: setSaasData }),
@@ -2906,14 +2906,16 @@ function SalaryForecastCard({ finance }) {
 }
 
 /* ───────── Baza produktów: zakup jednym kliknięciem → wydatek w Finansach ───────── */
+// key = składnik planu diety, amt = ile go w 1 sztuce produktu (g / ml / szt) → kupione idzie do zapasu listy zakupów
 const SEED_PRODUCTS = [
-  { id: "p_kefir", n: "Kefir 1 l", price: 0 }, { id: "p_jogurt", n: "Jogurt grecki", price: 0 }, { id: "p_jajka", n: "Jajka 10 szt.", price: 0 },
-  { id: "p_wolowina", n: "Wołowina", price: 0 }, { id: "p_losos", n: "Łosoś", price: 0 }, { id: "p_makrela", n: "Makrela", price: 0 },
-  { id: "p_ser", n: "Ser", price: 0 }, { id: "p_maslo", n: "Masło", price: 0 }, { id: "p_watrobka", n: "Wątróbka", price: 0 },
+  { id: "p_kefir", n: "Kefir 1 l", price: 0, key: "milk", amt: 1000 }, { id: "p_jogurt", n: "Jogurt grecki 1 kg", price: 0, key: "yog", amt: 1000 }, { id: "p_jajka", n: "Jajka 10 szt.", price: 0, key: "egg", amt: 10 },
+  { id: "p_wolowina", n: "Wołowina 500 g", price: 0, key: "ribeye", amt: 500 }, { id: "p_losos", n: "Łosoś 250 g", price: 0, key: "salmon", amt: 250 }, { id: "p_makrela", n: "Makrela 200 g", price: 0, key: "mackerel", amt: 200 },
+  { id: "p_ser", n: "Ser 400 g", price: 0, key: "cheese", amt: 400 }, { id: "p_maslo", n: "Masło 250 g", price: 0, key: "butter", amt: 250 }, { id: "p_watrobka", n: "Wątróbka 500 g", price: 0, key: "liver", amt: 500 },
 ];
-function QuickBuy({ finance, setFinance, setToast }) {
-  const products = finance.products || SEED_PRODUCTS;
-  const setProducts = (fn) => setFinance((f) => ({ ...f, products: fn(f.products || SEED_PRODUCTS) }));
+const withSeedKeys = (P) => P.map((pr) => { const sd = SEED_PRODUCTS.find((x) => x.id === pr.id); return sd && pr.key === undefined ? { ...pr, key: sd.key, amt: sd.amt } : pr; });
+function QuickBuy({ finance, setFinance, setToast, setShopping, daily, diet }) {
+  const products = withSeedKeys(finance.products || SEED_PRODUCTS);
+  const setProducts = (fn) => setFinance((f) => ({ ...f, products: fn(withSeedKeys(f.products || SEED_PRODUCTS)) }));
   const foodCat = ((finance.cats || []).find((c) => /jedzen/i.test(c.name)) || (finance.cats || [])[0] || {}).id;
   const [date, setDate] = useState(todayKey());
   const [lines, setLines] = useState([]);
@@ -2929,6 +2931,11 @@ function QuickBuy({ finance, setFinance, setToast }) {
     if (!ok.length) return;
     const txs = ok.map((l) => { const promo = l.def > 0 && Math.abs(num(l.price) - l.def) > 0.001; return { id: uid(), type: "expense", amount: Math.round(num(l.price) * l.qty * 100) / 100, note: l.n + (l.qty > 1 ? ` ×${l.qty}` : "") + (promo ? ` (promocja, zwykle ${eur(l.def)})` : ""), date, cat: foodCat, inc: null, src: "quick", pid: l.pid }; });
     setFinance((f) => ({ ...f, tx: [...txs, ...(f.tx || [])] }));
+    // zapas: produkty powiązane ze składnikiem planu (np. 4 × kefir 1 l = 4 l) zdejmują go z listy zakupów na tyle dni, na ile starczy
+    if (setShopping) {
+      const mult = (STAGES.find((x) => x.k === ((diet && diet.stage) || 1)) || STAGES[0]).mult;
+      ok.forEach((l) => { const pr = products.find((x) => x.id === l.pid); if (pr && pr.key && PF[pr.key] && pr.amt > 0) setShopping((sh) => addPantry(sh, pr.key, pr.amt * l.qty, date, daily || {}, mult)); });
+    }
     // produkty bez ceny dostają pierwszą wpisaną jako domyślną
     setProducts((P) => P.map((pr) => { const l = ok.find((x) => x.pid === pr.id); return l && !pr.price ? { ...pr, price: num(l.price) } : pr; }));
     if (setToast) setToast({ icon: "piggy", title: "Dodano do Finansów", msg: eur(sum) + " · " + ok.length + " poz.", color: "var(--green)" });
@@ -2945,12 +2952,14 @@ function QuickBuy({ finance, setFinance, setToast }) {
       products.map((pr) => React.createElement("div", { key: pr.id, style: { display: "flex", gap: 6, alignItems: "center", marginBottom: 6 } },
         React.createElement("input", { value: pr.n, onChange: (e) => setProducts((P) => P.map((x) => x.id === pr.id ? { ...x, n: e.target.value } : x)), style: { ...inp, flex: 1 } }),
         React.createElement("input", { value: pr.price || "", inputMode: "decimal", placeholder: "€", onChange: (e) => setProducts((P) => P.map((x) => x.id === pr.id ? { ...x, price: num(e.target.value) } : x)), style: { ...inp, width: 70 } }),
+        React.createElement("select", { value: pr.key || "", onChange: (e) => setProducts((P) => P.map((x) => x.id === pr.id ? { ...x, key: e.target.value || null } : x)), title: "Składnik planu diety", style: { ...inp, width: 92, padding: "8px 4px" } }, React.createElement("option", { value: "" }, "— dieta"), Object.keys(PF).map((k) => React.createElement("option", { key: k, value: k }, PF[k].n.split(" (")[0].split(" \u2014")[0]))),
+        pr.key && React.createElement("input", { value: pr.amt || "", inputMode: "decimal", placeholder: PF[pr.key] ? PF[pr.key].u : "", title: "Ile w 1 szt. (" + (PF[pr.key] ? PF[pr.key].u : "") + ")", onChange: (e) => setProducts((P) => P.map((x) => x.id === pr.id ? { ...x, amt: num(e.target.value) } : x)), style: { ...inp, width: 58 } }),
         React.createElement("button", { onClick: () => setProducts((P) => P.filter((x) => x.id !== pr.id)), style: { ...iconBtn, width: 36, height: 36, color: "var(--red)" } }, React.createElement(X, { size: 15 })))),
       React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 8 } },
         React.createElement("input", { value: nn, onChange: (e) => setNn(e.target.value), placeholder: "Nowy produkt (np. Kefir 1 l)", style: { ...inp, flex: 1 } }),
         React.createElement("input", { value: np, onChange: (e) => setNp(e.target.value), inputMode: "decimal", placeholder: "€", style: { ...inp, width: 70 } }),
         React.createElement("button", { onClick: () => { if (!nn.trim()) return; setProducts((P) => [...P, { id: "p_" + uid(), n: nn.trim(), price: num(np) }]); setNn(""); setNp(""); }, style: { ...iconBtn, width: 36, height: 36, color: "var(--green2)" } }, React.createElement(Plus, { size: 16 }))),
-      React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 8 } }, "Cena tutaj = zwykła cena. Przy zakupie możesz wpisać inną (promocja)."))
+      React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 8 } }, "Cena = zwykła cena (przy zakupie wpiszesz inną, gdy jest promocja). „Dieta” + ilość w opakowaniu = kupione idzie do zapasu i lista zakupów nie dolicza tego, dopóki starczy."))
     : React.createElement(React.Fragment, null,
       React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } }, products.map((pr) => React.createElement("button", { key: pr.id, onClick: () => add(pr), style: chip }, pr.n, pr.price ? React.createElement("span", { style: { color: "var(--gold2)", marginLeft: 6 } }, eur(pr.price)) : null))),
       lines.length > 0 && React.createElement("div", { style: { marginTop: 12 } },
@@ -2965,7 +2974,7 @@ function QuickBuy({ finance, setFinance, setToast }) {
           React.createElement("button", { onClick: () => setLines((L) => L.filter((x) => x.pid !== l.pid)), style: { ...iconBtn, width: 32, height: 32, color: "var(--faint)" } }, React.createElement(X, { size: 14 }))); }),
         React.createElement("button", { onClick: save, style: { ...btnPrimary, marginTop: 6, width: "100%" } }, "Zapisz zakupy " + eur(sum) + (date !== todayKey() ? " (" + date + ")" : "")))));
 }
-function Money({ finance, setFinance, events, setTab, setToast }) {
+function Money({ finance, setFinance, events, setTab, setToast, setShopping, daily, diet }) {
     const [addOpen, setAddOpen] = useState(false);
     const [type, setType] = useState("expense");
     const [amount, setAmount] = useState("");
@@ -3163,7 +3172,7 @@ function Money({ finance, setFinance, events, setTab, setToast }) {
             React.createElement("button", { onClick: openEdit, style: { ...iconBtn, width: "auto", padding: "0 14px", fontSize: 13, fontWeight: 700, color: "var(--green2)" } },
                 React.createElement(Pencil, { size: 14, style: { marginRight: 5 } }),
                 "Edytuj")),
-        React.createElement(QuickBuy, { finance, setFinance, setToast }),
+        React.createElement(QuickBuy, { finance, setFinance, setToast, setShopping, daily, diet }),
         React.createElement(Card, { style: { marginTop: 16 } },
             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 } },
                 React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 700, fontSize: 15 } }, "Bilans miesi\u0105ca"),
@@ -4308,7 +4317,37 @@ const SHOP_HINT = {
   butter: (q) => `\u2248 ${Math.max(1, Math.ceil(q / 250))} kostka`,
   egg: (q) => `\u2248 ${Math.ceil(q / 10)} op. po 10`
 };
-const buildAutoShop = (daily, mult, store) => {
+// ── Zapas: kupiłeś więcej (np. 4 l kefiru) → lista nie dolicza tego produktu, dopóki zapas wg planu nie zejdzie ──
+const needOn = (k, key, daily, mult) => {
+  const mp = (daily[k] || {}).mplan || {};
+  let q = 0;
+  mealsFor(weekdayIdx(k)).forEach((m) => m.items.forEach(([kk, g]) => {
+    if (kk !== key) return;
+    const iid = `${m.id}_${kk}`;
+    const ov = mp.g && mp.g[iid] != null && mp.g[iid] !== "" ? parseFloat(mp.g[iid]) : null;
+    q += ov != null && !isNaN(ov) ? ov : stageG(kk, g, mult);
+  }));
+  return q;
+};
+const pantryLeft = (e, key, atKey, daily, mult) => {
+  if (!e || !(e.qty > 0)) return 0;
+  let left = e.qty, d = e.since;
+  for (let i = 0; i < 400 && d < atKey; i++) { left -= needOn(d, key, daily, mult); d = addDays(d, 1); }
+  return Math.max(0, left);
+};
+const pantryUntil = (e, key, daily, mult) => {
+  let left = pantryLeft(e, key, todayKey(), daily, mult), d = todayKey();
+  if (left <= 0) return null;
+  for (let i = 0; i < 120; i++) { const n = needOn(d, key, daily, mult); if (n > left) return d; left -= n; d = addDays(d, 1); }
+  return d;
+};
+const addPantry = (shopping, key, qty, date, daily, mult) => {
+  const pan = { ...(shopping.pantry || {}) };
+  const left = pantryLeft(pan[key], key, date, daily, mult);
+  pan[key] = { qty: left + qty, since: date };
+  return { ...shopping, pantry: pan };
+};
+const buildAutoShop = (daily, mult, store, pantry) => {
   const w = shopWindow(todayKey());
   const tot = {};
   w.days.forEach((k) => {
@@ -4319,14 +4358,20 @@ const buildAutoShop = (daily, mult, store) => {
       tot[key] = (tot[key] || 0) + (ov != null && !isNaN(ov) ? ov : stageG(key, g, mult));
     }));
   });
-  const items = Object.entries(tot).filter(([, q]) => q > 0).map(([key, q]) => {
+  const fromPantry = {};
+  Object.keys(tot).forEach((key) => {
+    const rem = pantryLeft((pantry || {})[key], key, w.days[0], daily, mult);
+    if (rem > 0) { const cov = Math.min(rem, tot[key]); fromPantry[key] = cov; tot[key] = Math.max(0, tot[key] - cov); }
+  });
+  const items = Object.entries(tot).filter(([key, q]) => q > 0 && !(PF[key].u !== "szt" && q < 15)).map(([key, q]) => {
     const it = PF[key];
     const hint = SHOP_HINT[key] ? ` (${SHOP_HINT[key](q)})` : "";
     return { id: `auto_${key}`, name: `\u{1F4CB} ${it.n} \u2014 ${fmtQty(q, it.u)}${hint}`, store, done: false, auto: true };
   });
   let kc = 0, pr = 0;
   Object.entries(tot).forEach(([key, q]) => { const m = macroOf(key, q); kc += m.kcal; pr += m.p; });
-  return { win: w.start, items, kcal: Math.round(kc), p: Math.round(pr) };
+  Object.entries(fromPantry).forEach(([key, q]) => { const m = macroOf(key, q); kc += m.kcal; pr += m.p; });
+  return { win: w.start, items, kcal: Math.round(kc), p: Math.round(pr), fromPantry };
 };
 const mergeAutoShop = (shopping, built, force) => {
   const sameWin = shopping.autoWin === built.win;
@@ -4343,9 +4388,9 @@ function AutoShopBar({ shopping, setShopping, daily, diet }) {
   const fmt = (k) => `${parseInt(k.slice(8))}.${k.slice(5, 7)}`;
   const refresh = () => {
     buzz(8);
-    setShopping((p) => mergeAutoShop(p, buildAutoShop(daily, mult, (p.stores || [])[0] || "Sklep"), true));
+    setShopping((p) => mergeAutoShop(p, buildAutoShop(daily, mult, (p.stores || [])[0] || "Sklep", p.pantry), true));
   };
-  return /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 14 }, pad: 12 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13.5, fontWeight: 800 } }, "\u{1F4CB} Lista z planu diety"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)", marginTop: 2 } }, "Na ", fmt(w.days[0]), "\u2013", fmt(w.days[2]), " \xB7 nowa lista ", fmt(w.next), " \xB7 etap ", diet.stage || 1), (() => { const b = buildAutoShop(daily, mult, ""); return /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--green2)", marginTop: 3, fontWeight: 700 } }, "3 dni = ", b.kcal.toLocaleString("pl-PL"), " kcal \xB7 ", b.p, " g bia\u0142ka (\u2248 ", Math.round(b.kcal / 3), " kcal / ", Math.round(b.p / 3), " g dziennie)"); })()), /* @__PURE__ */ React.createElement("button", { onClick: refresh, style: { ...iconBtn, width: "auto", padding: "0 12px", fontSize: 12, fontWeight: 700, color: "var(--green2)" } }, "Od\u015Bwie\u017C")));
+  return /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 14 }, pad: 12 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13.5, fontWeight: 800 } }, "\u{1F4CB} Lista z planu diety"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)", marginTop: 2 } }, "Na ", fmt(w.days[0]), "\u2013", fmt(w.days[2]), " \xB7 nowa lista ", fmt(w.next), " \xB7 etap ", diet.stage || 1), (() => { const b = buildAutoShop(daily, mult, "", shopping.pantry); return /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--green2)", marginTop: 3, fontWeight: 700 } }, "3 dni = ", b.kcal.toLocaleString("pl-PL"), " kcal \xB7 ", b.p, " g bia\u0142ka (\u2248 ", Math.round(b.kcal / 3), " kcal / ", Math.round(b.p / 3), " g dziennie)"); })(), (() => { const pan = shopping.pantry || {}; const rows = Object.keys(pan).map((key) => ({ key, left: pantryLeft(pan[key], key, todayKey(), daily, mult), until: pantryUntil(pan[key], key, daily, mult) })).filter((r) => r.left > 0 && PF[r.key]); if (!rows.length) return null; return /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6 } }, rows.map((r) => /* @__PURE__ */ React.createElement("div", { key: r.key, style: { fontSize: 11.5, color: "var(--gold2)", fontWeight: 700, marginTop: 2 } }, "\u{1F4E6} Zapas: ", PF[r.key].n, " ", fmtQty(r.left, PF[r.key].u), r.until ? ` \u2192 starczy do ${fmt(r.until)}` : "", /* @__PURE__ */ React.createElement("button", { onClick: () => setShopping((p) => { const np = { ...(p.pantry || {}) }; delete np[r.key]; return { ...p, pantry: np }; }), style: { marginLeft: 8, border: "none", background: "transparent", color: "var(--faint)", fontSize: 11.5, cursor: "pointer" } }, "usu\u0144")))); })()), /* @__PURE__ */ React.createElement("button", { onClick: refresh, style: { ...iconBtn, width: "auto", padding: "0 12px", fontSize: 12, fontWeight: 700, color: "var(--green2)" } }, "Od\u015Bwie\u017C")));
 }
 
 
@@ -5696,10 +5741,9 @@ function Diet({ diet, setDiet, shopping, setShopping, day, setDay, profile, supp
     const dietMult = (STAGES.find((x) => x.k === (diet.stage || 1)) || STAGES[0]).mult;
     useEffect(() => {
         const st = diet.stage || 1;
-        // lista zakupów jest teraz ręczna (wpisujesz, co kupiłeś danego dnia) — sprzątamy stare pozycje automatu
-        if ((shopping.items || []).some((it) => it.auto && !it.done))
-            setShopping((p) => ({ ...p, items: (p.items || []).filter((it) => !it.auto || it.done) }));
-    }, [diet.stage]);
+        if (shopping.autoWin !== shopWindow(todayKey()).start || shopping.autoStage !== st || shopping.autoPan !== JSON.stringify(shopping.pantry || {}))
+            setShopping((p) => ({ ...mergeAutoShop(p, buildAutoShop(daily || {}, dietMult, (p.stores || [])[0] || "Sklep", p.pantry)), autoStage: st, autoPan: JSON.stringify(p.pantry || {}) }));
+    }, [diet.stage, JSON.stringify(shopping.pantry || {})]);
     const [goalsOpen, setGoalsOpen] = useState(false);
     const [foodOpen, setFoodOpen] = useState(false);
     const [shopOpen, setShopOpen] = useState(false);
@@ -5992,7 +6036,7 @@ function Diet({ diet, setDiet, shopping, setShopping, day, setDay, profile, supp
             React.createElement("div", { style: { height: 8 } }),
             React.createElement("button", { onClick: openFoodSheet, style: fab },
                 React.createElement(Plus, { size: 26, color: "#04130a", strokeWidth: 3 })))) : (React.createElement("div", null,
-            false && React.createElement(AutoShopBar, { shopping, setShopping, daily: daily || {}, diet }),
+            React.createElement(AutoShopBar, { shopping, setShopping, daily: daily || {}, diet }),
             React.createElement("div", { style: { display: "flex", gap: 8, overflowX: "auto", padding: "16px 0 4px", margin: "0 -16px", paddingLeft: 16, paddingRight: 16 }, className: "noscroll" },
                 React.createElement(Chip, { on: store === "all", onClick: () => setStore("all"), label: "Wszystko", color: "var(--green2)", count: shopping.items.filter((i) => !i.done).length }),
                 stores.map((s) => React.createElement(Chip, { key: s, on: store === s, onClick: () => setStore(s), label: s, color: "var(--gold2)", count: shopping.items.filter((i) => i.store === s && !i.done).length })),
