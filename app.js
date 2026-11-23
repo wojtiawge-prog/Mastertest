@@ -192,7 +192,7 @@ const SEED_SUPPS = [
     { id: "s_mag", name: "Magnez (glicynian)", dose: "400 mg", when: "Wieczór" },
     { id: "s_ashwa", name: "Ashwagandha KSM-66", dose: "600 mg", when: "Wieczór" },
 ];
-const SYNC_KEYS = ["mp_profile_v1", "mp_habits_v1", "mp_supps_v1", "mp_daily_v4", "mp_tasks_v1", "mp_finance_v1", "mp_events_v1", "mp_diet_v1", "mp_shopping_v1", "mp_saas_v1", "mp_measures_v1", "mp_books_v1", "mp_prs_v1", "mp_review_v1", "mp_medi_v1", "mp_voice_v1", "mp_blood_v1", "mp_charisma_v1", "mp_journal_v1", "mp_bizplan_v1", "mp_trades_v1", "mp_rest_v1", "mp_gate_v1", "mp_fav_v1", "mp_hub_v1", "mp_goal_v1", "mp_dgrep_v1"];
+const SYNC_KEYS = ["mp_profile_v1", "mp_habits_v1", "mp_supps_v1", "mp_daily_v4", "mp_tasks_v1", "mp_finance_v1", "mp_events_v1", "mp_diet_v1", "mp_shopping_v1", "mp_saas_v1", "mp_measures_v1", "mp_books_v1", "mp_prs_v1", "mp_review_v1", "mp_medi_v1", "mp_voice_v1", "mp_blood_v1", "mp_charisma_v1", "mp_journal_v1", "mp_bizplan_v1", "mp_trades_v1", "mp_rest_v1", "mp_gate_v1", "mp_fav_v1", "mp_hub_v1", "mp_alarms_v1", "mp_goal_v1", "mp_dgrep_v1"];
 const SB_DEFAULT = { url: "https://rizfgnnlfdfigfyyrgon.supabase.co", key: "sb_publishable__iRIS60Qm_T3ncPD9ysKqA_7j70abEf" };
 const sbNormUrl = (u) => {
   u = String(u || "").trim().replace(/^["']|["']$/g, "");
@@ -1176,7 +1176,7 @@ export default function App() {
     const defaultAlarms = { Ranka: { enabled: true, wake: "05:00", supl: "05:15", biz: "15:30", trening: "15:30" }, Popołudnie: { enabled: true, wake: "07:00", supl: "07:15", biz: "08:00", trening: "12:00" }, Nocka: { enabled: true, wake: "08:00", supl: "08:15", biz: "10:00", trening: null }, Wolne: { enabled: true, wake: "06:00", supl: "06:15", biz: "06:30", trening: "09:30" } };
     const alarmCfg = alarms || defaultAlarms;
     const saveAlarms = (v) => { setAlarms(v); try {
-        localStorage.setItem("mp_alarms_v1", JSON.stringify(v));
+        save("mp_alarms_v1", v);
     }
     catch { } };
     const askNotif = () => { try {
@@ -1364,7 +1364,7 @@ export default function App() {
     useEffect(() => {
         if (!ready)
             return;
-        const map = { mp_profile_v1: setProfile, mp_habits_v1: setHabits, mp_supps_v1: setSupps, mp_daily_v4: setDaily, mp_tasks_v1: setTasks, mp_finance_v1: setFinance, mp_events_v1: setEvents, mp_diet_v1: (v) => setDiet({ ...SEED_DIET, ...v }), mp_shopping_v1: setShopping, mp_saas_v1: setSaasData, mp_measures_v1: setMeasures, mp_books_v1: setBooks, mp_prs_v1: setPrs, mp_review_v1: setWeekFocus, mp_medi_v1: setMedi, mp_voice_v1: setVoiceLog, mp_blood_v1: setBloodLog, mp_charisma_v1: setCharisma, mp_journal_v1: setJournal, mp_bizplan_v1: setBizplan, mp_trades_v1: (v) => setTrades({ ...SEED_TRADES, ...v }), mp_rest_v1: (v) => restStore.replace(v), mp_gate_v1: (v) => gateStore.replace(v), mp_fav_v1: (v) => favStore.replace(v), mp_goal_v1: (v) => goalStore.replace(v), mp_hub_v1: (v) => hubStore.replace(v), mp_dgrep_v1: (v) => repStore.replace(v) };
+        const map = { mp_profile_v1: setProfile, mp_habits_v1: setHabits, mp_supps_v1: setSupps, mp_daily_v4: setDaily, mp_tasks_v1: setTasks, mp_finance_v1: setFinance, mp_events_v1: setEvents, mp_diet_v1: (v) => setDiet({ ...SEED_DIET, ...v }), mp_shopping_v1: setShopping, mp_saas_v1: setSaasData, mp_measures_v1: setMeasures, mp_books_v1: setBooks, mp_prs_v1: setPrs, mp_review_v1: setWeekFocus, mp_medi_v1: setMedi, mp_voice_v1: setVoiceLog, mp_blood_v1: setBloodLog, mp_charisma_v1: setCharisma, mp_journal_v1: setJournal, mp_bizplan_v1: setBizplan, mp_trades_v1: (v) => setTrades({ ...SEED_TRADES, ...v }), mp_rest_v1: (v) => restStore.replace(v), mp_gate_v1: (v) => gateStore.replace(v), mp_fav_v1: (v) => favStore.replace(v), mp_goal_v1: (v) => goalStore.replace(v), mp_hub_v1: (v) => hubStore.replace(v), mp_alarms_v1: (v) => setAlarms(v), mp_dgrep_v1: (v) => repStore.replace(v) };
         sync.onRemote = (k, v) => { if (v != null && map[k]) map[k](v); };
         sync.init();
     }, [ready]);
@@ -1823,6 +1823,7 @@ function Home({ profile, setProfile, habits, supps, day, daily, tasks, finance, 
                     React.createElement(Settings, { size: 18 })))),
         React.createElement(WinDayCard, { daily, day, setDay, habits, diet }),
         React.createElement(GoalMini, { setTab }),
+        React.createElement(IOSAlarmEvening, { alarmCfg: lsJSON("mp_alarms_v1", null) || HOME_DEF_ALARMS, events: lsJSON("mp_events_v1", []), setTab }),
         React.createElement(FreeFundsCard, { finance, setFinance, setToast }),
         React.createElement(Card, { style: { marginTop: 18, display: "flex", alignItems: "center", gap: 18, position: "relative", overflow: "hidden" } },
             dayPct === 100 && React.createElement("div", { style: { position: "absolute", inset: 0, background: "radial-gradient(120px 80px at 22% 50%, var(--green-glow), transparent)", animation: "pulse 2s ease-in-out infinite" } }),
@@ -5710,6 +5711,55 @@ function BookTracker({ books, setBooks }) {
 /* ═══════════════════════════════════════════════════════════════════
    ALARM CENTER — powiadomienia i budziki dostosowane do grafiku
    ═══════════════════════════════════════════════════════════════════ */
+const HOME_DEF_ALARMS = { Ranka: { enabled: true, wake: "05:00", supl: "05:15", biz: "15:30", trening: "15:30" }, Popo\u0142udnie: { enabled: true, wake: "07:00", supl: "07:15", biz: "08:00", trening: "12:00" }, Nocka: { enabled: true, wake: "08:00", supl: "08:15", biz: "10:00", trening: null }, Wolne: { enabled: true, wake: "06:00", supl: "06:15", biz: "06:30", trening: "09:30" } };
+const AL_LABELS = { wake: "Pobudka", supl: "Suple", biz: "Biznes \xB7 telefony do skup\xF3w", trening: "Trening" };
+const shiftOfDate = (events, k) => {
+  const e = (events || []).find((x) => x.date === k && x.title && /Ranka|Popołudnie|Nocka/.test(x.title));
+  return e ? e.title.includes("Ranka") ? "Ranka" : e.title.includes("Popo\u0142udnie") ? "Popo\u0142udnie" : "Nocka" : "Wolne";
+};
+function iosAlarmList(alarmCfg, events, offset) {
+  const d = /* @__PURE__ */ new Date();
+  d.setDate(d.getDate() + offset);
+  const k = keyOf(d);
+  const sh = shiftOfDate(events, k);
+  const c = (alarmCfg || {})[sh] || {};
+  const nowHM = `${pad((/* @__PURE__ */ new Date()).getHours())}:${pad((/* @__PURE__ */ new Date()).getMinutes())}`;
+  const items = Object.keys(AL_LABELS).filter((f) => c[f] && /^\d{1,2}:\d{2}$/.test(c[f]) && (offset > 0 || c[f] > nowHM)).map((f) => ({ t: c[f].padStart(5, "0"), l: "MP \xB7 " + AL_LABELS[f] }));
+  const seen = /* @__PURE__ */ new Set();
+  const uniq = items.sort((a, b) => a.t < b.t ? -1 : 1).filter((x) => {
+    const kk = x.t;
+    if (seen.has(kk)) {
+      const prev = items.find((y) => y.t === kk);
+      if (prev && prev !== x) prev.l += " + " + x.l.replace("MP \xB7 ", "");
+      return false;
+    }
+    seen.add(kk);
+    return true;
+  });
+  return { k, sh, items: c.enabled === false ? [] : uniq };
+}
+function IOSAlarmCard({ alarmCfg, events, setTab, compact }) {
+  const [off, setOff] = useState((/* @__PURE__ */ new Date()).getHours() >= 15 ? 1 : 0);
+  const L = iosAlarmList(alarmCfg, events, off);
+  const run = () => {
+    if (!L.items.length) return;
+    const text = L.items.map((x) => `${x.t}|${x.l}`).join(";");
+    buzz(10);
+    window.location.href = "shortcuts://run-shortcut?name=" + encodeURIComponent("MP Alarmy") + "&input=text&text=" + encodeURIComponent(text);
+  };
+  return /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 14 }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, letterSpacing: ".08em", color: "var(--gold2)" } }, "\u23F0 ALARMY W ZEGARZE \xB7 iPHONE"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4 } }, [["Dzi\u015B", 0], ["Jutro", 1]].map(([l, v]) => /* @__PURE__ */ React.createElement("button", { key: v, onClick: () => setOff(v), style: { padding: "4px 9px", borderRadius: 8, border: "none", fontSize: 11.5, fontWeight: 700, cursor: "pointer", background: off === v ? "var(--gold)" : "var(--surface2)", color: off === v ? "#1a1200" : "var(--muted)" } }, l)))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 700, marginTop: 6 } }, off ? "Jutro" : "Dzi\u015B", ": ", L.sh), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 } }, L.items.length ? L.items.map((x) => /* @__PURE__ */ React.createElement("span", { key: x.t, style: { fontSize: 12, padding: "5px 8px", borderRadius: 8, background: "var(--surface2)", border: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement("b", null, x.t), " ", x.l.replace("MP \xB7 ", ""))) : /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--muted)" } }, "Brak alarm\xF3w do ustawienia.")), /* @__PURE__ */ React.createElement("button", { onClick: run, disabled: !L.items.length, style: { ...btnPrimary, marginTop: 10, opacity: L.items.length ? 1 : 0.5 } }, "Ustaw ", L.items.length, " alarm(y) w Zegarze"), !compact && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--faint)", marginTop: 8, lineHeight: 1.5 } }, "Wymaga Skr\xF3tu \u201EMP Alarmy\u201D w aplikacji Skr\xF3ty. Godziny zmieniasz ni\u017Cej, osobno dla ka\u017Cdej zmiany."), compact && setTab && /* @__PURE__ */ React.createElement("button", { onClick: () => setTab("alarms"), style: { width: "100%", marginTop: 6, background: "none", border: "none", color: "var(--faint)", fontSize: 12, cursor: "pointer" } }, "Zmie\u0144 godziny \u2192"));
+}
+function IOSAlarmEvening({ alarmCfg, events, setTab }) {
+  const [h, setH] = useState((/* @__PURE__ */ new Date()).getHours());
+  useEffect(() => {
+    const iv = setInterval(() => setH((/* @__PURE__ */ new Date()).getHours()), 5 * 6e4);
+    return () => clearInterval(iv);
+  }, []);
+  const ios = /iPhone|iPad|iPod/.test(navigator.userAgent || "") || lsJSON("mp_ios_force", false);
+  if (!ios || h < 18) return null;
+  return /* @__PURE__ */ React.createElement(IOSAlarmCard, { alarmCfg, events, setTab, compact: true });
+}
+
 function AlarmCenter({ alarmCfg, defaultAlarms, saveAlarms, notifPerm, askNotif, events, setToast, fireAlarm }) {
     const [editShift, setEditShift] = useState(null);
     const [draft, setDraft] = useState({});
@@ -5737,6 +5787,7 @@ function AlarmCenter({ alarmCfg, defaultAlarms, saveAlarms, notifPerm, askNotif,
     };
     return (React.createElement("div", null,
         React.createElement(DevHeader, { icon: Bell, tint: "var(--gold)", kicker: "Alarmy i powiadomienia", title: "Centrum alarm\u00F3w" }),
+        React.createElement(IOSAlarmCard, { alarmCfg: cfg, events }),
         React.createElement(PhoneAlarmCard, { cfg: cfg, todayShift: todayShift, setToast: setToast }),
         React.createElement(Card, { style: { marginTop: 14, background: notifPerm === "granted" ? "rgba(34,197,94,.08)" : "rgba(245,181,61,.1)", border: notifPerm === "granted" ? "1px solid rgba(34,197,94,.3)" : "1px solid rgba(245,181,61,.35)" } },
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12 } },
