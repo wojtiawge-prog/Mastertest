@@ -1540,7 +1540,7 @@ export default function App() {
                     setTab("money"); setToast(null); } }),
             React.createElement("div", { key: tab, className: "mp-content", style: { animation: "fade .25s ease", padding: "0 16px" } },
                 !["home", "train", "diet", "habits", "money", "trade", "rozwoj"].includes(tab) && React.createElement(BackBar, { tab, setTab }),
-                tab === "home" && React.createElement(Home, { profile, setProfile, habits, supps, day, daily, tasks, setTasks, finance, setFinance, setToast, diet, toggleHabit, setTab, resetStats, journal, setJournal, setDay }),
+                tab === "home" && React.createElement(Home, { profile, setProfile, habits, supps, day, daily, tasks, setTasks, events, setEvents, finance, setFinance, setToast, diet, toggleHabit, setTab, resetStats, journal, setJournal, setDay }),
                 tab === "rozwoj" && React.createElement(DevHub, { setTab, profile, daily, habits, measures, medi, voiceLog, books, prs, diet }),
                 tab === "cal" && React.createElement(Calendar, { events, setEvents, daily, habits, finance, profile, setProfile, setToast }),
                 tab === "tasks" && React.createElement(Tasks, { tasks, setTasks }),
@@ -1568,6 +1568,7 @@ export default function App() {
                 tab === "trade" && React.createElement(Trading, { trades, setTrades }),
                 tab === "brama" && React.createElement(ExitGate, { finance, setFinance, setToast }),
                 tab === "cel" && React.createElement(Goal100, { finance, setFinance, setSaasData, setToast, setTab })),
+            React.createElement(ReminderHost, { events, setToast }),
             React.createElement(DGReportHost, { S: { profile, daily, habits, measures, finance, diet, books, prs, weekFocus, photos, events, bloodLog, journal }, setTab }),
             timer.running && tab !== "train" && (React.createElement("div", { onClick: () => setTab("train"), style: {
                     position: "fixed", bottom: 84, left: "50%", transform: "translateX(-50%)", zIndex: 40,
@@ -1660,7 +1661,197 @@ function TodayTasksCard({ tasks, setTasks, setTab }) {
   return /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 14, border: "1px solid rgba(245,181,61,.4)" }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, letterSpacing: ".08em", color: "var(--gold2)" } }, "\u2705 ZADANIA NA DZI\u015A \xB7 ", doneN, "/", mine.length), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--muted)" } }, left ? "zosta\u0142o ~" + hm(left) : mine.length ? "komplet \u{1F525}" : "")), mine.length ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6 } }, mine.slice().sort(sortT).map((t) => /* @__PURE__ */ React.createElement(Row, { key: t.id, t }))) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, color: "var(--muted)", marginTop: 8 } }, "Brak zada\u0144 na dzi\u015B. Nowe przychodz\u0105 codziennie z raportem o 20:00."), next.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: ".06em" } }, "JUTRO"), next.slice().sort(sortT).map((t) => /* @__PURE__ */ React.createElement(Row, { key: t.id, t }))), /* @__PURE__ */ React.createElement("button", { onClick: () => setTab("tasks"), style: { width: "100%", marginTop: 8, background: "none", border: "none", color: "var(--faint)", fontSize: 12, cursor: "pointer" } }, "Wszystkie zadania \u2192"));
 }
 
-function Home({ profile, setProfile, habits, supps, day, daily, tasks, setTasks, finance, setFinance, setToast, diet, toggleHabit, setTab, resetStats, journal, setJournal, setDay }) {
+const hm2m = (s) => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || ""));
+  return m ? +m[1] * 60 + +m[2] : null;
+};
+const m2hm = (m) => {
+  m = (m % 1440 + 1440) % 1440;
+  return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+};
+const dayShift = (events, k) => shiftOfDate(events, k);
+const SHIFT_WIN = { Ranka: [360, 930], "Popo\u0142udnie": [840, 1410], Nocka: [1320, 1440] };
+const ROUT_M = [{ id: "m1", t: "\u{1F4A7} Woda + \u015Bwiat\u0142o dzienne", m: 2 }, { id: "m2", t: "\u{1F9CD} Postawa, mewing, szyja", m: 3 }, { id: "m3", t: "\u{1F399}\uFE0F G\u0142os: oddech przepon\u0105 + 2 min czytania na g\u0142os", m: 5 }, { id: "m4", t: "\u{1F48A} Suple", m: 1 }, { id: "m5", t: "\u{1F4CB} Rzut oka na plan dnia", m: 2 }];
+const ROUT_E = [{ id: "e1", t: "\u{1F4F5} Ekran od\u0142o\u017Cony, \u015Bwiat\u0142o przygaszone", m: 1 }, { id: "e2", t: "\u{1F9F4} Skincare", m: 3 }, { id: "e3", t: "\u{1F4DD} Dziennik: 3 zdania o dniu", m: 3 }, { id: "e4", t: "\u{1F9D8} Oddech / medytacja", m: 5 }, { id: "e5", t: "\u{1F392} Rzeczy na jutro gotowe", m: 2 }];
+function sleepPlan(events, k, alarms) {
+  const A = alarms || lsJSON("mp_alarms_v1", null) || HOME_DEF_ALARMS;
+  const s0 = dayShift(events, k), s1 = dayShift(events, addDays(k, 1)), sp = dayShift(events, addDays(k, -1));
+  const wakeOf = (s) => hm2m((A[s] || {}).wake) ?? (s === "Ranka" ? 300 : s === "Popo\u0142udnie" ? 450 : 480);
+  let wake = wakeOf(s0), bed = null, note = "", nap = null, dayNap = null;
+  if (sp === "Nocka" && s0 !== "Nocka") {
+    wake = 780;
+    dayNap = [510, 780];
+    note = "Po nocce: kr\xF3tki sen do 13:00, wieczorem normalnie \u2014 reset rytmu";
+  }
+  if (sp === "Nocka" && s0 === "Nocka") {
+    wake = 870;
+    dayNap = [510, 870];
+    note = "Mi\u0119dzy nockami: \u015Bpij 8:30\u201314:30 w ciemno\u015Bci";
+  }
+  if (s0 === "Nocka") {
+    bed = null;
+    nap = sp !== "Nocka" ? [930, 1050] : null;
+    note = note || "Nocka: drzemka 15:30\u201317:30 przed wyjazdem";
+  } else if (s0 === "Popo\u0142udnie") bed = 1455;
+  else if (s1 === "Ranka") bed = 1290;
+  else if (s1 === "Nocka") bed = 1470;
+  else bed = 1380;
+  if (s0 === "Popo\u0142udnie" && s1 === "Nocka") bed = 1500;
+  const routine = bed != null ? bed - 30 : null;
+  const lastMeal = bed != null ? bed - 90 : null;
+  const hours = bed != null ? (wakeOf(s1 === "Nocka" ? "Wolne" : s1) + (s1 === "Nocka" ? 120 : 0) + 1440 - bed) % 1440 / 60 : null;
+  return { s0, s1, sp, wake, bed, routine, lastMeal, nap, dayNap, note, hours };
+}
+function dayItems(events, tasks, k) {
+  const out = [];
+  const sh = dayShift(events, k);
+  if (SHIFT_WIN[sh]) out.push({ kind: "shift", t0: SHIFT_WIN[sh][0], t1: SHIFT_WIN[sh][1], title: `${sh} (z dojazdem)`, hard: true });
+  const sp = sleepPlan(events, k);
+  if (sp.dayNap) out.push({ kind: "sleep", t0: sp.dayNap[0], t1: sp.dayNap[1], title: "\u{1F634} Sen po nocce", hard: false });
+  if (sp.nap) out.push({ kind: "sleep", t0: sp.nap[0], t1: sp.nap[1], title: "\u{1F634} Drzemka przed nock\u0105", hard: false });
+  out.push({ kind: "rout", t0: sp.wake, t1: sp.wake + 15, title: "\u{1F305} Rutyna poranna", r: "m" });
+  if (sp.routine != null) out.push({ kind: "rout", t0: sp.routine, t1: sp.routine + 15, title: "\u{1F319} Rutyna wieczorna", r: "e" });
+  if (sp.bed != null) out.push({ kind: "bed", t0: sp.bed, t1: sp.bed, title: "\u{1F6CF}\uFE0F Sen" });
+  (events || []).filter((e) => e.date === k && e.time && !/Ranka|Popołudnie|Nocka/.test(e.title || "")).forEach((e) => {
+    const t0 = hm2m(e.time);
+    out.push({ kind: "event", t0, t1: t0 + (+e.dur || 60), title: e.title, ev: e, hard: true });
+  });
+  (tasks && tasks.items || []).filter((t) => t.list === "l_inbox" && (t.date === k || !t.date && k === todayKey()) && t.at).forEach((t) => {
+    const t0 = hm2m(t.at);
+    out.push({ kind: "task", t0, t1: t0 + (+t.min || 30), title: t.title, task: t, hard: false });
+  });
+  out.sort((a, b) => a.t0 - b.t0);
+  out.forEach((a) => {
+    a.conf = out.filter((b) => b !== a && b.kind !== "bed" && a.kind !== "bed" && !(a.kind === "rout" && b.kind === "rout") && (a.hard || b.hard || a.kind === "task" || b.kind === "task" || a.kind === "sleep" || b.kind === "sleep") && a.t0 < b.t1 && b.t0 < a.t1).map((b) => b.title);
+  });
+  return out;
+}
+function icsDownload(e) {
+  const d = e.date.replace(/-/g, "");
+  const t0 = hm2m(e.time) || 540;
+  const t1 = t0 + (+e.dur || 60);
+  const f = (m) => `${d}T${pad(Math.floor(m / 60) % 24)}${pad(m % 60)}00`;
+  const rem = e.remind == null ? 60 : +e.remind;
+  const ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//MasterPlan//PL", "BEGIN:VEVENT", `UID:mp-${e.id}@masterplan`, `DTSTAMP:${(/* @__PURE__ */ new Date()).toISOString().replace(/[-:]/g, "").slice(0, 15)}Z`, `DTSTART:${f(t0)}`, `DTEND:${f(t1)}`, `SUMMARY:${String(e.title).replace(/[,;]/g, " ")}`, e.note ? `DESCRIPTION:${String(e.note).replace(/[,;\n]/g, " ")}` : "", ...rem >= 0 ? ["BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${String(e.title).replace(/[,;]/g, " ")}`, `TRIGGER:-PT${rem}M`, "END:VALARM"] : [], "END:VEVENT", "END:VCALENDAR"].filter(Boolean).join("\r\n");
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = (e.title || "wydarzenie").replace(/[^\wąćęłńóśźżĄĆĘŁŃÓŚŹŻ -]/g, "").slice(0, 40) + ".ics";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4e3);
+  buzz(10);
+}
+const EV_COLORS2 = ["#f5b53d", "#22c55e", "#3b82f6", "#a78bfa", "#ef4444", "#14b8a6"];
+function EventForm({ date, onSave, compact }) {
+  const [t, setT] = useState("");
+  const [d, setD] = useState(date || todayKey());
+  const [tm, setTm] = useState("");
+  const [dur, setDur] = useState("60");
+  const [rem, setRem] = useState("60");
+  const [note, setNote] = useState("");
+  const [col, setCol] = useState("#a78bfa");
+  useEffect(() => {
+    if (date) setD(date);
+  }, [date]);
+  const sm = { ...inputStyle, padding: "9px 10px", fontSize: 14 };
+  const lb = { fontSize: 11, color: "var(--muted)", display: "block", marginBottom: 4 };
+  const save = (andIcs) => {
+    if (!t.trim()) return;
+    const e = { id: uid(), date: d, title: t.trim(), note: note.trim(), color: col, ...tm ? { time: tm, dur: +dur || 60, remind: rem === "" ? -1 : +rem } : {} };
+    onSave(e);
+    if (andIcs && tm) icsDownload(e);
+    setT("");
+    setTm("");
+    setNote("");
+    buzz(10);
+  };
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("input", { value: t, onChange: (e) => setT(e.target.value), placeholder: "np. Lekarz z Karolin\u0105", style: { ...sm, marginBottom: 8 } }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 8 } }, /* @__PURE__ */ React.createElement("label", null, /* @__PURE__ */ React.createElement("span", { style: lb }, "Data"), /* @__PURE__ */ React.createElement("input", { type: "date", value: d, onChange: (e) => setD(e.target.value), style: sm })), /* @__PURE__ */ React.createElement("label", null, /* @__PURE__ */ React.createElement("span", { style: lb }, "Godzina"), /* @__PURE__ */ React.createElement("input", { type: "time", value: tm, onChange: (e) => setTm(e.target.value), style: sm }))), tm && /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 } }, /* @__PURE__ */ React.createElement("label", null, /* @__PURE__ */ React.createElement("span", { style: lb }, "Ile trwa (min, z dojazdem)"), /* @__PURE__ */ React.createElement("input", { inputMode: "numeric", value: dur, onChange: (e) => setDur(e.target.value), style: sm })), /* @__PURE__ */ React.createElement("label", null, /* @__PURE__ */ React.createElement("span", { style: lb }, "Przypomnij (min przed)"), /* @__PURE__ */ React.createElement("input", { inputMode: "numeric", value: rem, onChange: (e) => setRem(e.target.value), style: sm }))), !compact && /* @__PURE__ */ React.createElement("input", { value: note, onChange: (e) => setNote(e.target.value), placeholder: "Notatka (opcjonalnie)", style: { ...sm, marginTop: 8 } }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } }, EV_COLORS2.map((c) => /* @__PURE__ */ React.createElement("button", { key: c, onClick: () => setCol(c), style: { width: 26, height: 26, borderRadius: 99, background: c, cursor: "pointer", border: col === c ? "2px solid var(--text)" : "2px solid transparent" } }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 10 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => save(false), style: { ...btnPrimary, marginTop: 0, flex: 1 } }, "Dodaj"), tm && /* @__PURE__ */ React.createElement("button", { onClick: () => save(true), style: { ...btnPrimary, marginTop: 0, flex: 1.3, background: "var(--surface2)", color: "var(--text)", border: "1px solid var(--line2)" } }, "Dodaj + \u{1F4F2} iPhone")), tm && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--faint)", marginTop: 6, lineHeight: 1.4 } }, "\u201E+ iPhone\u201D dodaje wydarzenie do kalendarza telefonu z przypomnieniem ", rem || 0, " min przed \u2014 dzwoni nawet przy zamkni\u0119tej aplikacji."));
+}
+function DayAgendaCard({ events, setEvents, tasks, setTasks, day, setDay, setTab }) {
+  const [k, setK] = useState(todayKey());
+  const [addOpen, setAddOpen] = useState(false);
+  const [rOpen, setROpen] = useState(null);
+  const isToday = k === todayKey();
+  const items = dayItems(events, tasks, k);
+  const sp = sleepPlan(events, k);
+  const nowM = (/* @__PURE__ */ new Date()).getHours() * 60 + (/* @__PURE__ */ new Date()).getMinutes();
+  const loose = (tasks && tasks.items || []).filter((t) => t.list === "l_inbox" && !t.at && (t.date === k || !t.date && isToday));
+  const allT = (tasks && tasks.items || []).filter((t) => t.list === "l_inbox" && (t.date === k || !t.date && isToday));
+  const doneN = allT.filter((t) => t.done).length;
+  const allDay = (events || []).filter((e) => e.date === k && !e.time && !/Ranka|Popołudnie|Nocka/.test(e.title || ""));
+  const toggleT = (id) => {
+    setTasks((p) => ({ ...p, items: (p.items || []).map((t) => t.id === id ? { ...t, done: !t.done } : t) }));
+    buzz(8);
+  };
+  const rt = isToday && day && day.rt || {};
+  const toggleR = (r, id) => {
+    if (!isToday) return;
+    setDay((d) => ({ ...d, rt: { ...d.rt || {}, [r]: { ...(d.rt || {})[r] || {}, [id]: !((d.rt || {})[r] || {})[id] } } }));
+    buzz(6);
+  };
+  const conflicts = items.filter((i) => i.conf.length && (i.kind === "event" || i.kind === "task"));
+  const dName = (kk) => (/* @__PURE__ */ new Date(kk + "T12:00:00")).toLocaleDateString("pl-PL", { weekday: "short", day: "numeric", month: "short" });
+  const upcoming = (events || []).filter((e) => e.date > k && e.date <= addDays(k, 7) && !/Ranka|Popołudnie|Nocka/.test(e.title || "")).sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || ""))).slice(0, 5);
+  const col = (i) => i.kind === "shift" ? "#e87c1e" : i.kind === "event" ? i.ev.color || "#a78bfa" : i.kind === "task" ? "var(--gold)" : i.kind === "sleep" || i.kind === "bed" ? "#6366f1" : "var(--green2)";
+  return /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 14, border: "1px solid rgba(245,181,61,.4)" }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setK(addDays(k, -1)), style: { ...iconBtn, width: 28, height: 28, fontSize: 13 } }, "\u2039"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, letterSpacing: ".08em", color: "var(--gold2)", textTransform: "uppercase" } }, "\u{1F4C5} ", isToday ? "Dzi\u015B" : dName(k), " \xB7 ", sp.s0), /* @__PURE__ */ React.createElement("button", { onClick: () => setK(addDays(k, 1)), style: { ...iconBtn, width: 28, height: 28, fontSize: 13 } }, "\u203A")), /* @__PURE__ */ React.createElement("button", { onClick: () => setAddOpen(true), style: { background: "var(--gold)", color: "#1a1200", border: "none", borderRadius: 10, padding: "6px 10px", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, "+ Wydarzenie")), conflicts.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, padding: "9px 11px", borderRadius: 11, background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.4)", fontSize: 12.5, lineHeight: 1.45 } }, "\u26A0\uFE0F ", /* @__PURE__ */ React.createElement("b", null, "Niewykonalne w tych godzinach:"), " ", [...new Set(conflicts.map((c) => [c.title.replace(/\s*\(\d+\s*min\)/, ""), String(c.conf[0]).replace(/\s*\(\d+\s*min\)/, "")].sort().join(" \u2194 ")))].join("; "), ". Przesu\u0144 jedno z nich."), allDay.map((e) => /* @__PURE__ */ React.createElement("div", { key: e.id, style: { marginTop: 8, fontSize: 12.5, padding: "6px 9px", borderRadius: 9, background: "var(--surface2)", borderLeft: `3px solid ${e.color || "var(--gold)"}` } }, "\u{1F4CC} ", e.title, e.note ? ` \xB7 ${e.note}` : "")), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, items.map((i, idx) => {
+    const past = isToday && i.t1 < nowM && i.kind !== "bed";
+    const done = i.kind === "task" ? i.task.done : i.kind === "rout" ? (i.r === "m" ? ROUT_M : ROUT_E).every((x) => (rt[i.r] || {})[x.id]) : false;
+    return /* @__PURE__ */ React.createElement("div", { key: idx, onClick: () => i.kind === "task" ? toggleT(i.task.id) : i.kind === "rout" ? setROpen(rOpen === i.r ? null : i.r) : null, style: { display: "flex", gap: 10, padding: "8px 0", borderTop: "1px solid var(--line)", cursor: i.kind === "task" || i.kind === "rout" ? "pointer" : "default", opacity: past && !i.conf.length ? 0.55 : 1 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 44, fontSize: 12, fontWeight: 800, color: "var(--muted)", fontVariantNumeric: "tabular-nums", paddingTop: 1 } }, m2hm(i.t0)), /* @__PURE__ */ React.createElement("div", { style: { width: 3, borderRadius: 3, background: col(i), flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13.5, fontWeight: i.kind === "shift" || i.kind === "event" ? 700 : 500, textDecoration: done ? "line-through" : "none", color: done ? "var(--muted)" : "var(--text)" } }, (i.kind === "task" || i.kind === "rout") && /* @__PURE__ */ React.createElement("span", { style: { marginRight: 6 } }, done ? "\u2611\uFE0F" : "\u2B1C"), i.title), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: i.conf.length ? "var(--red)" : "var(--faint)" } }, i.kind === "bed" ? `ostatni posi\u0142ek do ${m2hm(sp.lastMeal)}${sp.hours ? ` \xB7 ok. ${sp.hours.toFixed(1)} h snu` : ""}` : `${m2hm(i.t0)}\u2013${m2hm(i.t1)}`, i.kind === "task" && i.task.by ? ` \xB7 zr\xF3b do ${i.task.by}` : "", i.kind === "event" && i.ev.remind >= 0 ? ` \xB7 przypomnienie ${i.ev.remind} min przed` : "", i.conf.length ? ` \xB7 koliduje: ${i.conf[0]}` : ""), i.kind === "rout" && rOpen === i.r && /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { marginTop: 6 } }, (i.r === "m" ? ROUT_M : ROUT_E).map((x) => /* @__PURE__ */ React.createElement("div", { key: x.id, onClick: () => toggleR(i.r, x.id), style: { display: "flex", alignItems: "center", gap: 8, padding: "5px 0", cursor: isToday ? "pointer" : "default" } }, /* @__PURE__ */ React.createElement(CheckBox, { on: !!(rt[i.r] || {})[x.id] }), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontSize: 12.5 } }, x.t), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--faint)" } }, x.m, " min")))), i.kind === "event" && /* @__PURE__ */ React.createElement("button", { onClick: (e) => {
+      e.stopPropagation();
+      icsDownload(i.ev);
+    }, style: { marginTop: 4, background: "none", border: "1px solid var(--line2)", color: "var(--muted)", borderRadius: 8, padding: "3px 8px", fontSize: 11, cursor: "pointer" } }, "\u{1F4F2} Do kalendarza iPhone")));
+  })), sp.note && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "#a5b4fc", marginTop: 6 } }, "\u{1F634} ", sp.note), loose.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: ".06em" } }, "ZADANIA BEZ GODZINY \xB7 ", doneN, "/", allT.length), loose.slice().sort((a, b) => a.done === b.done ? (a.prio || 9) - (b.prio || 9) : a.done ? 1 : -1).map((t) => /* @__PURE__ */ React.createElement("div", { key: t.id, onClick: () => toggleT(t.id), style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderTop: "1px solid var(--line)", cursor: "pointer" } }, /* @__PURE__ */ React.createElement(CheckBox, { on: !!t.done }), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontSize: 13.5, color: t.done ? "var(--muted)" : "var(--text)", textDecoration: t.done ? "line-through" : "none" } }, t.title), t.by && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--faint)" } }, "do ", t.by)))), upcoming.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: ".06em" } }, "NAJBLI\u017BSZE"), upcoming.map((e) => /* @__PURE__ */ React.createElement("div", { key: e.id, style: { fontSize: 12.5, padding: "5px 0", display: "flex", gap: 8 } }, /* @__PURE__ */ React.createElement("span", { style: { color: "var(--muted)", width: 88 } }, dName(e.date), e.time ? " " + e.time : ""), /* @__PURE__ */ React.createElement("span", { style: { flex: 1 } }, e.title)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setTab("cal"), style: { flex: 1, background: "none", border: "none", color: "var(--faint)", fontSize: 12, cursor: "pointer" } }, "Kalendarz \u2192"), /* @__PURE__ */ React.createElement("button", { onClick: () => setTab("tasks"), style: { flex: 1, background: "none", border: "none", color: "var(--faint)", fontSize: 12, cursor: "pointer" } }, "Wszystkie zadania \u2192")), /* @__PURE__ */ React.createElement(Sheet, { open: addOpen, onClose: () => setAddOpen(false), title: "Nowe wydarzenie" }, /* @__PURE__ */ React.createElement(EventForm, { date: k, onSave: (e) => {
+    setEvents((p) => [...p, e]);
+    setAddOpen(false);
+  } })));
+}
+function ReminderHost({ events, setToast }) {
+  useEffect(() => {
+    const tick = () => {
+      const now = /* @__PURE__ */ new Date();
+      const k = todayKey();
+      const nm = now.getHours() * 60 + now.getMinutes();
+      let sent = {};
+      try {
+        sent = JSON.parse(localStorage.getItem("mp_remsent") || "{}");
+      } catch (e) {
+      }
+      const fire = (id, title, body) => {
+        if (sent[id]) return;
+        sent[id] = Date.now();
+        buzz([200, 100, 200]);
+        setToast && setToast({ icon: "sun", title, msg: body, color: "var(--gold2)" });
+        try {
+          if (typeof Notification !== "undefined" && Notification.permission === "granted" && navigator.serviceWorker) navigator.serviceWorker.ready.then((r) => r.showNotification(title, { body, tag: id, icon: "icon-192.png" }));
+        } catch (e) {
+        }
+      };
+      (events || []).filter((e) => e.date === k && e.time && e.remind !== -1).forEach((e) => {
+        const t0 = hm2m(e.time);
+        const rem = e.remind == null ? 60 : +e.remind;
+        if (nm >= t0 - rem && nm < t0) fire("ev_" + e.id, `\u23F0 ${e.title} o ${e.time}`, `Za ${t0 - nm} min.`);
+      });
+      const sp = sleepPlan(events, k);
+      if (sp.routine != null && nm >= sp.routine && nm < sp.routine + 30) fire("rt_" + k, "\u{1F319} Czas na rutyn\u0119 wieczorn\u0105", `Sen o ${m2hm(sp.bed)}. 15 minut: ekran off, skincare, dziennik, oddech.`);
+      Object.keys(sent).forEach((x) => {
+        if (Date.now() - sent[x] > 3 * 864e5) delete sent[x];
+      });
+      try {
+        localStorage.setItem("mp_remsent", JSON.stringify(sent));
+      } catch (e) {
+      }
+    };
+    tick();
+    const iv = setInterval(tick, 6e4);
+    return () => clearInterval(iv);
+  }, [events]);
+  return null;
+}
+
+function Home({ profile, setProfile, habits, supps, day, daily, tasks, setTasks, events, setEvents, finance, setFinance, setToast, diet, toggleHabit, setTab, resetStats, journal, setJournal, setDay }) {
     const [wOpen, setWOpen] = useState(false);
     const [wVal, setWVal] = useState(profile.weight);
     const [setOpen, setSetOpen] = useState(false);
@@ -1845,7 +2036,7 @@ function Home({ profile, setProfile, habits, supps, day, daily, tasks, setTasks,
                     React.createElement("span", { style: { fontFamily: "var(--display)", fontWeight: 800, fontSize: 15 } }, streak)),
                 React.createElement("button", { onClick: () => setSetOpen(true), style: { ...iconBtn, position: "relative" }, "aria-label": "Ustawienia" }, React.createElement(SyncDot, null),
                     React.createElement(Settings, { size: 18 })))),
-        React.createElement(TodayTasksCard, { tasks, setTasks, setTab }),
+        React.createElement(DayAgendaCard, { events: events || [], setEvents, tasks, setTasks, day, setDay, setTab }),
         React.createElement(WinDayCard, { daily, day, setDay, habits, diet }),
         React.createElement(GoalMini, { setTab }),
         React.createElement(IOSAlarmEvening, { alarmCfg: lsJSON("mp_alarms_v1", null) || HOME_DEF_ALARMS, events: lsJSON("mp_events_v1", []), setTab }),
@@ -3345,7 +3536,7 @@ function Calendar({ events, setEvents, daily, habits, finance, profile, setProfi
                             React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 800, fontSize: 18, lineHeight: 1 } }, D),
                             React.createElement("div", { style: { fontSize: 9.5, color: "var(--faint)", textTransform: "uppercase" } }, PL_MON[vm].slice(0, 3))),
                         React.createElement("div", { style: { flex: 1, minWidth: 0 } },
-                            React.createElement("div", { style: { fontSize: 14, fontWeight: 600 } }, e.title),
+                            React.createElement("div", { style: { fontSize: 14, fontWeight: 600 } }, e.time ? e.time + " \xB7 " : "", e.title),
                             e.note && React.createElement("div", { style: { fontSize: 12, color: "var(--faint)" } }, e.note)),
                         React.createElement("button", { onClick: () => delEvent(e.id), style: { ...iconBtn, width: 30, height: 30, border: "none", background: "transparent", color: "var(--faint)" } },
                             React.createElement(X, { size: 15 }))));
@@ -3441,18 +3632,12 @@ function Calendar({ events, setEvents, daily, habits, finance, profile, setProfi
         React.createElement(Sheet, { open: dayOpen, onClose: () => setDayOpen(false), title: selPretty },
             selEvents.length > 0 && (React.createElement("div", { style: { marginBottom: 14 } }, selEvents.map((e) => (React.createElement("div", { key: e.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12, marginBottom: 8, borderLeft: `3px solid ${e.color || "var(--gold)"}` } },
                 React.createElement("div", { style: { flex: 1, minWidth: 0 } },
-                    React.createElement("div", { style: { fontSize: 14, fontWeight: 600 } }, e.title),
+                    React.createElement("div", { style: { fontSize: 14, fontWeight: 600 } }, e.time ? e.time + " \xB7 " : "", e.title),
                     e.note && React.createElement("div", { style: { fontSize: 12, color: "var(--faint)" } }, e.note)),
                 React.createElement("button", { onClick: () => delEvent(e.id), style: { ...iconBtn, width: 30, height: 30, border: "none", background: "rgba(248,113,113,.1)", color: "var(--red)" } },
                     React.createElement(Trash2, { size: 15 }))))))),
-            React.createElement("label", { style: label }, "Nowe wa\u017Cne wydarzenie"),
-            React.createElement("input", { style: inputStyle, placeholder: "np. Spotkanie z klientem", value: title, autoFocus: true, onChange: (e) => setTitle(e.target.value), onKeyDown: (e) => { if (e.key === "Enter")
-                    addEvent(); } }),
-            React.createElement("label", { style: label }, "Notatka (opcjonalnie)"),
-            React.createElement("input", { style: inputStyle, placeholder: "szczeg\u00F3\u0142y\u2026", value: note, onChange: (e) => setNote(e.target.value) }),
-            React.createElement("label", { style: label }, "Kolor"),
-            React.createElement("div", { style: { display: "flex", gap: 10 } }, EVENT_COLORS.map((c) => (React.createElement("button", { key: c, onClick: () => setColor(c), style: { width: 32, height: 32, borderRadius: 99, background: c, cursor: "pointer", border: color === c ? "2px solid var(--text)" : "2px solid transparent" } })))),
-            React.createElement("button", { style: btnPrimary, onClick: addEvent }, "Dodaj wydarzenie")),
+            React.createElement("label", { style: label }, "Nowe wydarzenie"),
+            React.createElement(EventForm, { date: sel, onSave: (ev) => setEvents((p) => [...p, ev]) })),
         React.createElement(Sheet, { open: vacOpen, onClose: () => setVacOpen(false), title: "Dodaj urlop \uD83C\uDF34" },
             React.createElement("div", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 12, lineHeight: 1.5 } }, "Zaznacz zakres urlopu w kalendarzu \u2014 ka\u017Cdy dzie\u0144 otrzyma ikon\u0119 \uD83C\uDF34. Urlop p\u0142atny jest automatycznie liczony w kalkulatorze wyp\u0142at jako dzie\u0144 pracy."),
             React.createElement("label", { style: label }, "Rodzaj"),
@@ -5762,7 +5947,14 @@ function iosAlarmList(alarmCfg, events, offset) {
     seen.add(kk);
     return true;
   });
-  return { k, sh, items: c.enabled === false ? [] : uniq };
+  const out = c.enabled === false ? [] : uniq;
+  try {
+    const sp = sleepPlan(events, k, alarmCfg);
+    if (sp.routine != null && (offset > 0 || m2hm(sp.routine) > nowHM)) out.push({ t: m2hm(sp.routine), l: "MP \xB7 Rutyna wieczorna \u2192 sen " + m2hm(sp.bed) });
+    if (sp.nap && (offset > 0 || m2hm(sp.nap[0]) > nowHM)) out.push({ t: m2hm(sp.nap[0]), l: "MP \xB7 Drzemka przed nock\u0105" });
+    out.sort((a, b) => (a.t < b.t ? -1 : 1));
+  } catch (e) {}
+  return { k, sh, items: out };
 }
 function IOSAlarmCard({ alarmCfg, events, setTab, compact }) {
   const [off, setOff] = useState((/* @__PURE__ */ new Date()).getHours() >= 15 ? 1 : 0);
