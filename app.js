@@ -193,6 +193,7 @@ const SEED_SUPPS = [
     { id: "s_ashwa", name: "Ashwagandha KSM-66", dose: "600 mg", when: "Wieczór" },
 ];
 const SYNC_KEYS = ["mp_profile_v1", "mp_habits_v1", "mp_supps_v1", "mp_daily_v4", "mp_tasks_v1", "mp_finance_v1", "mp_events_v1", "mp_diet_v1", "mp_shopping_v1", "mp_saas_v1", "mp_measures_v1", "mp_books_v1", "mp_prs_v1", "mp_review_v1", "mp_medi_v1", "mp_voice_v1", "mp_blood_v1", "mp_charisma_v1", "mp_journal_v1", "mp_bizplan_v1", "mp_trades_v1", "mp_rest_v1", "mp_gate_v1", "mp_fav_v1", "mp_hub_v1", "mp_goal_v1", "mp_dgrep_v1"];
+const SB_DEFAULT = { url: "https://rizfgnnlfdfigfyyrgon.supabase.co", key: "sb_publishable__iRIS60Qm_T3ncPD9ysKqA_7j70abEf" };
 const sbNormUrl = (u) => {
   u = String(u || "").trim().replace(/^["']|["']$/g, "");
   const dash = /supabase\.com\/dashboard\/project\/([a-z0-9]+)/i.exec(u);
@@ -262,11 +263,12 @@ const sync = {
     lsSet("mp_sync_meta", JSON.stringify(this.meta));
   },
   cfg() {
+    let c = null;
     try {
-      return JSON.parse(lsGet("mp_sync_cfg") || "null");
+      c = JSON.parse(lsGet("mp_sync_cfg") || "null");
     } catch {
-      return null;
     }
+    return { ...(c || {}), url: SB_DEFAULT.url, key: SB_DEFAULT.key };
   },
   // przy wczytaniu z pamięci: wartość lokalna o nieznanym czasie = najstarsza (chmura wygrywa)
   seen(k, raw) {
@@ -488,10 +490,9 @@ function SyncPanel() {
   const btn = (primary) => ({ ...inputStyle, width: "100%", cursor: "pointer", fontWeight: 700, textAlign: "center", marginTop: 10, border: primary ? "none" : "1px solid var(--line2)", background: primary ? "var(--green)" : "transparent", color: primary ? "#04130a" : "var(--text)" });
   const stLabel = { off: "wy\u0142\u0105czona", login: "zaloguj si\u0119", idle: "zsynchronizowano", syncing: "synchronizuj\u0119\u2026", busy: "\u0142\u0105cz\u0119\u2026", error: "b\u0142\u0105d" }[s.status] || s.status;
   return /* @__PURE__ */ React.createElement("div", { style: box }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14.5, fontWeight: 700 } }, "Synchronizacja telefon \u2194 laptop"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: s.status === "idle" ? "var(--green2)" : s.status === "error" ? "var(--red)" : "var(--muted)" } }, stLabel)), s.error && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: s.status === "error" ? "var(--red)" : "var(--amber)", marginTop: 8 } }, s.error), s.status === "off" || s.status === "error" && !sync.cloud ? /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--faint)", marginTop: 8, lineHeight: 1.5 } }, "Darmowy projekt Supabase \u2192 Project Settings \u2192 API. Wklej Project URL i klucz \u201Eanon public\u201D."), /* @__PURE__ */ React.createElement("label", { style: lbl }, "Project URL"), /* @__PURE__ */ React.createElement("input", { style: inputStyle, value: url, placeholder: "https://xxxx.supabase.co", onChange: (e) => setUrl(e.target.value), autoCapitalize: "off", autoCorrect: "off" }), /* @__PURE__ */ React.createElement("label", { style: lbl }, "Klucz anon public"), /* @__PURE__ */ React.createElement("input", { style: inputStyle, value: key, placeholder: "eyJhbGciOi\u2026", onChange: (e) => setKey(e.target.value), autoCapitalize: "off", autoCorrect: "off" }), /* @__PURE__ */ React.createElement("button", { onClick: copySql, style: btn(false) }, copied ? "\u2713 Skopiowano SQL" : "Kopiuj SQL tabeli (wklej w SQL Editor)"), showSql && /* @__PURE__ */ React.createElement("textarea", { readOnly: true, value: SYNC_SQL, style: { ...inputStyle, width: "100%", height: 150, marginTop: 8, fontSize: 11, fontFamily: "monospace" } }), /* @__PURE__ */ React.createElement("button", { onClick: saveCfg, style: btn(true) }, "Po\u0142\u0105cz")) : !s.user ? /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("label", { style: lbl }, "E-mail"), /* @__PURE__ */ React.createElement("input", { style: inputStyle, type: "email", value: email, onChange: (e) => setEmail(e.target.value), autoCapitalize: "off" }), /* @__PURE__ */ React.createElement("label", { style: lbl }, "Has\u0142o"), /* @__PURE__ */ React.createElement("input", { style: inputStyle, type: "password", value: pw, onChange: (e) => setPw(e.target.value) }), /* @__PURE__ */ React.createElement("button", { onClick: () => doLogin(false), style: btn(true) }, "Zaloguj"), /* @__PURE__ */ React.createElement("button", { onClick: () => doLogin(true), style: btn(false) }, "Za\u0142\xF3\u017C konto (pierwszy raz)"), /* @__PURE__ */ React.createElement("button", { onClick: () => {
-    lsSet("mp_sync_cfg", "null");
     sync.cloud = null;
-    sync.set("off");
-  }, style: { ...btn(false), border: "none", color: "var(--faint)", fontSize: 12 } }, "Zmie\u0144 projekt Supabase")) : /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--muted)", marginTop: 8 } }, "Konto: ", /* @__PURE__ */ React.createElement("b", { style: { color: "var(--text)" } }, s.user.email)), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--faint)", marginTop: 4 } }, "Ostatnio: ", s.last ? `${pad(s.last.getHours())}:${pad(s.last.getMinutes())}:${pad(s.last.getSeconds())}` : "\u2014", " \xB7 zmiany wysy\u0142ane od razu, pobierane przy otwarciu aplikacji i co 45 s"), /* @__PURE__ */ React.createElement("button", { onClick: () => sync.pull(), style: btn(true) }, "Synchronizuj teraz"), /* @__PURE__ */ React.createElement("button", { onClick: () => sync.logout(), style: btn(false) }, "Wyloguj")));
+    sync.init();
+  }, style: { ...btn(false), border: "none", color: "var(--faint)", fontSize: 12 } }, "Po\u0142\u0105cz ponownie")) : /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: "var(--muted)", marginTop: 8 } }, "Konto: ", /* @__PURE__ */ React.createElement("b", { style: { color: "var(--text)" } }, s.user.email)), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--faint)", marginTop: 4 } }, "Ostatnio: ", s.last ? `${pad(s.last.getHours())}:${pad(s.last.getMinutes())}:${pad(s.last.getSeconds())}` : "\u2014", " \xB7 zmiany wysy\u0142ane od razu, pobierane przy otwarciu aplikacji i co 45 s"), /* @__PURE__ */ React.createElement("button", { onClick: () => sync.pull(), style: btn(true) }, "Synchronizuj teraz"), /* @__PURE__ */ React.createElement("button", { onClick: () => sync.logout(), style: btn(false) }, "Wyloguj")));
 }
 
 const PPL = (id, name, sub, ex) => ({ id, group: "Plan PPL", name: `${name} \u2014 ${sub}`, short: name, ex });
