@@ -1540,7 +1540,7 @@ export default function App() {
                     setTab("money"); setToast(null); } }),
             React.createElement("div", { key: tab, className: "mp-content", style: { animation: "fade .25s ease", padding: "0 16px" } },
                 !["home", "train", "diet", "habits", "money", "trade", "rozwoj"].includes(tab) && React.createElement(BackBar, { tab, setTab }),
-                tab === "home" && React.createElement(Home, { profile, setProfile, habits, supps, day, daily, tasks, finance, setFinance, setToast, diet, toggleHabit, setTab, resetStats, journal, setJournal, setDay }),
+                tab === "home" && React.createElement(Home, { profile, setProfile, habits, supps, day, daily, tasks, setTasks, finance, setFinance, setToast, diet, toggleHabit, setTab, resetStats, journal, setJournal, setDay }),
                 tab === "rozwoj" && React.createElement(DevHub, { setTab, profile, daily, habits, measures, medi, voiceLog, books, prs, diet }),
                 tab === "cal" && React.createElement(Calendar, { events, setEvents, daily, habits, finance, profile, setProfile, setToast }),
                 tab === "tasks" && React.createElement(Tasks, { tasks, setTasks }),
@@ -1636,7 +1636,31 @@ export default function App() {
             })))));
 }
 /* ───────────────────────── HOME / DASHBOARD ───────────────────────── */
-function Home({ profile, setProfile, habits, supps, day, daily, tasks, finance, setFinance, setToast, diet, toggleHabit, setTab, resetStats, journal, setJournal, setDay }) {
+function TodayTasksCard({ tasks, setTasks, setTab }) {
+  const items = tasks && tasks.items || [];
+  const tk = todayKey();
+  const tmr = (() => {
+    const d = /* @__PURE__ */ new Date();
+    d.setDate(d.getDate() + 1);
+    return keyOf(d);
+  })();
+  const evening = (/* @__PURE__ */ new Date()).getHours() >= 18;
+  const mine = items.filter((t) => t.list === "l_inbox" && (!t.date || t.date <= tk));
+  const next = evening ? items.filter((t) => t.list === "l_inbox" && t.date === tmr) : [];
+  const sortT = (a, b) => a.done === b.done ? (a.prio || 9) - (b.prio || 9) : a.done ? 1 : -1;
+  const mins = (t) => t.min || (+(/\((\d+)\s*min\)/.exec(t.title || "") || [])[1] || 0);
+  const left = mine.filter((t) => !t.done).reduce((s, t) => s + mins(t), 0);
+  const doneN = mine.filter((t) => t.done).length;
+  const toggle = (id) => {
+    setTasks((p) => ({ ...p, items: (p.items || []).map((t) => t.id === id ? { ...t, done: !t.done } : t) }));
+    buzz(8);
+  };
+  const hm = (m) => m >= 60 ? `${Math.floor(m / 60)} h ${m % 60 ? m % 60 + " min" : ""}` : `${m} min`;
+  const Row = ({ t }) => /* @__PURE__ */ React.createElement("div", { onClick: () => toggle(t.id), style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderTop: "1px solid var(--line)", cursor: "pointer" } }, /* @__PURE__ */ React.createElement(CheckBox, { on: !!t.done }), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontSize: 13.5, lineHeight: 1.35, color: t.done ? "var(--muted)" : "var(--text)", textDecoration: t.done ? "line-through" : "none" } }, t.title), t.prio === 1 && !t.done && /* @__PURE__ */ React.createElement("span", { style: { width: 7, height: 7, borderRadius: 7, background: "var(--gold)", flexShrink: 0 } }));
+  return /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 14, border: "1px solid rgba(245,181,61,.4)" }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, letterSpacing: ".08em", color: "var(--gold2)" } }, "\u2705 ZADANIA NA DZI\u015A \xB7 ", doneN, "/", mine.length), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--muted)" } }, left ? "zosta\u0142o ~" + hm(left) : mine.length ? "komplet \u{1F525}" : "")), mine.length ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: 6 } }, mine.slice().sort(sortT).map((t) => /* @__PURE__ */ React.createElement(Row, { key: t.id, t }))) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, color: "var(--muted)", marginTop: 8 } }, "Brak zada\u0144 na dzi\u015B. Nowe przychodz\u0105 codziennie z raportem o 20:00."), next.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: ".06em" } }, "JUTRO"), next.slice().sort(sortT).map((t) => /* @__PURE__ */ React.createElement(Row, { key: t.id, t }))), /* @__PURE__ */ React.createElement("button", { onClick: () => setTab("tasks"), style: { width: "100%", marginTop: 8, background: "none", border: "none", color: "var(--faint)", fontSize: 12, cursor: "pointer" } }, "Wszystkie zadania \u2192"));
+}
+
+function Home({ profile, setProfile, habits, supps, day, daily, tasks, setTasks, finance, setFinance, setToast, diet, toggleHabit, setTab, resetStats, journal, setJournal, setDay }) {
     const [wOpen, setWOpen] = useState(false);
     const [wVal, setWVal] = useState(profile.weight);
     const [setOpen, setSetOpen] = useState(false);
@@ -1821,6 +1845,7 @@ function Home({ profile, setProfile, habits, supps, day, daily, tasks, finance, 
                     React.createElement("span", { style: { fontFamily: "var(--display)", fontWeight: 800, fontSize: 15 } }, streak)),
                 React.createElement("button", { onClick: () => setSetOpen(true), style: { ...iconBtn, position: "relative" }, "aria-label": "Ustawienia" }, React.createElement(SyncDot, null),
                     React.createElement(Settings, { size: 18 })))),
+        React.createElement(TodayTasksCard, { tasks, setTasks, setTab }),
         React.createElement(WinDayCard, { daily, day, setDay, habits, diet }),
         React.createElement(GoalMini, { setTab }),
         React.createElement(IOSAlarmEvening, { alarmCfg: lsJSON("mp_alarms_v1", null) || HOME_DEF_ALARMS, events: lsJSON("mp_events_v1", []), setTab }),
