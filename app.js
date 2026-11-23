@@ -4227,6 +4227,7 @@ const dgAllLines = () => {
       const m = bp.meta[k] || {};
       return `${k}: ${m.stage || "Pomysl"}, ${m.h || 0} h/tydz., KPI ${m.kpi || "-"} (teraz ${m.now || "-"}, cel ${m.goal || "-"}), nastepny krok: ${m.next || "-"}`;
     }).join(" | ") + (bp.vision ? ` | WIZJA 2027: ${String(bp.vision).slice(0, 200)}` : ""));
+    const gl = gsDgLine(); if (gl) L.push(gl);
     const sa = lsJSON("mp_saas_v1", null);
     if (sa && (sa.pipeline || []).length) {
       const by = {};
@@ -7215,6 +7216,147 @@ const BP_SECTIONS = [
     { id: "ryzyko", n: "11. Analiza ryzyka", g: "Top 5 ryzyk (wolna sprzedaz, churn, konkurent, regulacje, zalezosc od jednej osoby) + plan ograniczenia kazdego. Banki i inwestorzy czytaja to uwaznie — pokazuje dojrzalosc." },
     { id: "kamienie", n: "12. Kamienie milowe", g: "Harmonogram z datami: gotowy produkt → pierwszy placacy klient → 10 klientow → break-even → skalowanie / sprzedaz firmy. Mierzalne cele z terminami. To Twoj plan egzekucji." },
 ];
+const GS_SEED = {
+  vision3: "",
+  why: "",
+  goals: [
+    { id: "g1", t: "\u015Arednio 100 000 z\u0142/mies. przychodu w X\u2013XII 2027", lag: "Przych\xF3d z\u0142/mies. (Cel 100k)", lead: "Telefony do skup\xF3w", target: 20, src: "calls", ob: "Po zmianie nie chce mi si\u0119 dzwoni\u0107, odk\u0142adam na \u201Ejutro\u201D", plan: "Je\u015Bli mam wolne albo popo\u0142udni\xF3wk\u0119, to o 8:00 siadam z kaw\u0105 i robi\u0119 10 telefon\xF3w, zanim otworz\u0119 cokolwiek innego." },
+    { id: "g2", t: "500 tys. $ finansowania prop i regularne wyp\u0142aty", lag: "Finansowanie $ i wyp\u0142aty", lead: "Trade'y w pe\u0142ni z planu (checklista 6/6)", target: 2, src: "manual", ob: "Wchodz\u0119 impulsywnie na widok wybicia", plan: "Je\u015Bli widz\u0119 wybicie bez zapisanego planu, to zamykam wykres i zapisuj\u0119 plan na nast\u0119pn\u0105 \u015Bwiec\u0119 HTF." },
+    { id: "g3", t: "Masa ok. 88 kg na czysto i si\u0142a na PPL", lag: "Waga i rekordy", lead: "Treningi PPL", target: 4, src: "train", ob: "Po nocce odpuszczam trening", plan: "Je\u015Bli jestem po nocce, to robi\u0119 skr\xF3cony trening 30 min albo mobilno\u015B\u0107, zamiast nic." }
+  ],
+  cycle: { start: "", tactics: [], done: {} },
+  leadVal: {},
+  reviews: {}
+};
+const GS_TACTICS = [
+  { t: "20 telefon\xF3w do skup\xF3w", w: 0 },
+  { t: "4 treningi PPL", w: 0 },
+  { t: "Przegl\u0105d tygodnia (niedziela, 20 min)", w: 0 },
+  { t: "Raport tygodnia wys\u0142any zaufanej osobie", w: 0 },
+  { t: "Lista 100 skup\xF3w z BDO z telefonami", w: 1 },
+  { t: "Skrypt rozmowy + oferta 449 z\u0142 + odpowiedzi na 5 obiekcji", w: 1 },
+  { t: "Pierwsze 5 prezentacji SkupOS", w: 2 },
+  { t: "Pierwszy p\u0142ac\u0105cy skup", w: 3 },
+  { t: "3 p\u0142ac\u0105ce skupy", w: 6 },
+  { t: "Program polece\u0144 gotowy", w: 8 },
+  { t: "10 klient\xF3w SkupOS", w: 12 }
+];
+const gsMon = (d) => {
+  const x = new Date(d);
+  x.setHours(12, 0, 0, 0);
+  x.setDate(x.getDate() - (x.getDay() + 6) % 7);
+  return x;
+};
+const gsWeekNo = (start) => {
+  if (!start) return 0;
+  const s = gsMon(/* @__PURE__ */ new Date(start + "T12:00:00"));
+  const n = gsMon(/* @__PURE__ */ new Date());
+  return Math.floor((n - s) / (7 * 864e5)) + 1;
+};
+const gsWeekKeys = (wkStartDate) => {
+  const out = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(wkStartDate);
+    d.setDate(d.getDate() + i);
+    out.push(keyOf(d));
+  }
+  return out;
+};
+function gsLeadThisWeek(goal, gs) {
+  const keys = gsWeekKeys(gsMon(/* @__PURE__ */ new Date()));
+  if (goal.src === "calls") {
+    const c = goalStore.v.calls || {};
+    return keys.reduce((s, k) => s + (c[k] || 0), 0);
+  }
+  if (goal.src === "train") {
+    const d = lsJSON("mp_daily_v4", {});
+    return keys.filter((k) => d[k] && d[k].workoutDone).length;
+  }
+  return ((gs.leadVal || {})[goal.id] || {})[keys[0]] || 0;
+}
+function gsScore(gs, w) {
+  const tac = (gs.cycle.tactics || []).filter((t) => t.w === 0 || t.w === w);
+  if (!tac.length) return null;
+  const dn = tac.filter((t) => ((gs.cycle.done || {})["w" + w] || {})[t.id]).length;
+  return { pct: Math.round(dn / tac.length * 100), dn, n: tac.length, tac };
+}
+function GoalSystem({ bizplan, setBizplan }) {
+  const gs = { ...GS_SEED, ...bizplan.gs || {}, cycle: { ...GS_SEED.cycle, ...(bizplan.gs || {}).cycle || {} } };
+  const setGs = (fn) => setBizplan((p) => {
+    const cur2 = { ...GS_SEED, ...p.gs || {}, cycle: { ...GS_SEED.cycle, ...(p.gs || {}).cycle || {} } };
+    return { ...p, gs: typeof fn === "function" ? fn(cur2) : { ...cur2, ...fn } };
+  });
+  const [seg, setSeg] = useState("rok");
+  const [nt, setNt] = useState("");
+  const [nw, setNw] = useState("0");
+  const [copied, setCopied] = useState(false);
+  const w = gsWeekNo(gs.cycle.start);
+  const cur = w >= 1 && w <= 12 ? gsScore(gs, w) : null;
+  const ta = { ...inputStyle, width: "100%", minHeight: 64, resize: "vertical", lineHeight: 1.5, fontFamily: "var(--body)", fontSize: 13 };
+  const sm = { ...inputStyle, padding: "8px 10px", fontSize: 13 };
+  const setGoal = (id, patch) => setGs((g) => ({ ...g, goals: g.goals.map((x) => x.id === id ? { ...x, ...patch } : x) }));
+  const startCycle = () => {
+    const mon = gsMon(/* @__PURE__ */ new Date());
+    if ((/* @__PURE__ */ new Date()).getDay() !== 1) mon.setDate(mon.getDate() + 7);
+    setGs((g) => ({ ...g, cycle: { start: keyOf(mon), tactics: g.cycle.tactics && g.cycle.tactics.length ? g.cycle.tactics : GS_TACTICS.map((t) => ({ id: uid(), ...t })), done: {} } }));
+    buzz(12);
+  };
+  const toggle = (tid) => {
+    setGs((g) => {
+      const k = "w" + w;
+      const d = { ...g.cycle.done || {} };
+      d[k] = { ...d[k] || {}, [tid]: !(d[k] || {})[tid] };
+      return { ...g, cycle: { ...g.cycle, done: d } };
+    });
+    buzz(6);
+  };
+  const addTac = () => {
+    if (!nt.trim()) return;
+    setGs((g) => ({ ...g, cycle: { ...g.cycle, tactics: [...g.cycle.tactics || [], { id: uid(), t: nt.trim(), w: Math.max(0, Math.min(12, parseInt(nw) || 0)) }] } }));
+    setNt("");
+  };
+  const delTac = (id) => setGs((g) => ({ ...g, cycle: { ...g.cycle, tactics: g.cycle.tactics.filter((t) => t.id !== id) } }));
+  const wkKey = keyOf(gsMon(/* @__PURE__ */ new Date()));
+  const rv = (gs.reviews || {})[wkKey] || {};
+  const setRv = (patch) => setGs((g) => ({ ...g, reviews: { ...g.reviews || {}, [wkKey]: { ...(g.reviews || {})[wkKey] || {}, ...patch } } }));
+  const report = () => {
+    const L = [`RAPORT TYGODNIA (${wkKey})`, cur ? `Wynik wykonania: ${cur.pct}% (${cur.dn}/${cur.n}) \u2014 cel 85%` : "", ...gs.goals.map((g) => `\u2022 ${g.lead}: ${gsLeadThisWeek(g, gs)}/${g.target}`), rv.win ? `Wygrana: ${rv.win}` : "", rv.miss ? `Nie wysz\u0142o: ${rv.miss}` : "", rv.fix ? `Zmiana na przysz\u0142y tydzie\u0144: ${rv.fix}` : ""].filter(Boolean).join("\n");
+    try {
+      navigator.clipboard.writeText(L);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (e) {
+    }
+    if (navigator.share) navigator.share({ text: L }).catch(() => {
+    });
+  };
+  const segBtn = (k, l) => /* @__PURE__ */ React.createElement("button", { key: k, onClick: () => setSeg(k), style: { flex: 1, padding: "9px 4px", borderRadius: 10, border: "none", fontSize: 12.5, fontWeight: 700, cursor: "pointer", background: seg === k ? "var(--gold)" : "transparent", color: seg === k ? "#1a1200" : "var(--muted)" } }, l);
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 12, background: "linear-gradient(135deg, rgba(245,181,61,.10), var(--surface))", border: "1px solid rgba(245,181,61,.35)" }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, color: "var(--muted)", lineHeight: 1.55 } }, /* @__PURE__ */ React.createElement("b", { style: { color: "var(--text)" } }, "Jak to dzia\u0142a:"), " wizja na 3 lata \u2192 ", /* @__PURE__ */ React.createElement("b", { style: { color: "var(--text)" } }, "maks. 3 cele na rok"), " (ka\u017Cdy z miernikiem wyniku i miernikiem dzia\u0142ania) \u2192 plan na ", /* @__PURE__ */ React.createElement("b", { style: { color: "var(--text)" } }, "12 tygodni"), " \u2192 co tydzie\u0144 wynik wykonania (cel ", /* @__PURE__ */ React.createElement("b", { style: { color: "var(--text)" } }, "85%"), ") i raport do zaufanej osoby.")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 4, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 13, padding: 4, marginTop: 12 } }, segBtn("rok", "1 \xB7 Rok"), segBtn("12t", "2 \xB7 12 tygodni"), segBtn("tydz", "3 \xB7 Tydzie\u0144")), seg === "rok" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: sectionTitle }, "Wizja \u2014 31.12.2029"), /* @__PURE__ */ React.createElement(Card, { pad: 14 }, /* @__PURE__ */ React.createElement("textarea", { value: gs.vision3, onChange: (e) => setGs({ vision3: e.target.value }), placeholder: "Jak wygl\u0105da twoje \u017Cycie za 3 lata? Liczby: przych\xF3d, firma, cia\u0142o, rodzina, gdzie mieszkasz.", style: ta }), /* @__PURE__ */ React.createElement("textarea", { value: gs.why, onChange: (e) => setGs({ why: e.target.value }), placeholder: "Dlaczego? (dla kogo i po co \u2014 to ma ci\u0119 ruszy\u0107 w gorszy dzie\u0144)", style: { ...ta, marginTop: 8, minHeight: 48 } })), /* @__PURE__ */ React.createElement("div", { style: sectionTitle }, "3 cele na 2027"), gs.goals.slice(0, 3).map((g, i) => {
+    const v = gsLeadThisWeek(g, gs);
+    return /* @__PURE__ */ React.createElement(Card, { key: g.id, style: { marginBottom: 10 }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, letterSpacing: ".08em", color: "var(--gold2)" } }, "CEL ", i + 1), /* @__PURE__ */ React.createElement("input", { value: g.t, onChange: (e) => setGoal(g.id, { t: e.target.value }), style: { ...sm, marginTop: 6, fontWeight: 700, fontSize: 14 } }), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 } }, /* @__PURE__ */ React.createElement("label", null, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--muted)" } }, "Miernik wyniku (efekt)"), /* @__PURE__ */ React.createElement("input", { value: g.lag, onChange: (e) => setGoal(g.id, { lag: e.target.value }), style: sm })), /* @__PURE__ */ React.createElement("label", null, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--muted)" } }, "Miernik dzia\u0142ania / tydz."), /* @__PURE__ */ React.createElement("input", { value: g.lead, onChange: (e) => setGoal(g.id, { lead: e.target.value }), style: sm }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 12.5, fontWeight: 700 } }, /* @__PURE__ */ React.createElement("span", null, "Ten tydzie\u0144"), /* @__PURE__ */ React.createElement("span", { style: { color: v >= g.target ? "var(--green2)" : "var(--muted)" } }, v, " / ", g.target)), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 5 } }, /* @__PURE__ */ React.createElement(Bar, { pct: Math.min(100, v / (g.target || 1) * 100), color: v >= g.target ? "var(--green)" : "var(--gold)" }))), /* @__PURE__ */ React.createElement("input", { inputMode: "numeric", value: g.target, onChange: (e) => setGoal(g.id, { target: parseInt(e.target.value) || 0 }), style: { ...sm, width: 54, textAlign: "center" }, "aria-label": "cel tygodniowy" }), g.src === "manual" && /* @__PURE__ */ React.createElement("button", { onClick: () => setGs((x) => ({ ...x, leadVal: { ...x.leadVal || {}, [g.id]: { ...(x.leadVal || {})[g.id] || {}, [wkKey]: (((x.leadVal || {})[g.id] || {})[wkKey] || 0) + 1 } } })), style: { width: 40, height: 36, borderRadius: 10, border: "none", background: "var(--gold)", color: "#1a1200", fontWeight: 800, cursor: "pointer" } }, "+1")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--faint)", marginTop: 4 } }, g.src === "calls" ? "Liczone automatycznie z telefon\xF3w w Celu 100k" : g.src === "train" ? "Liczone automatycznie z zaliczonych trening\xF3w" : "Klikaj +1 po ka\u017Cdym wykonaniu"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: "var(--muted)", marginTop: 12 } }, "WOOP \u2014 przeszkoda i plan \u201Eje\u015Bli\u2013to\u201D"), /* @__PURE__ */ React.createElement("input", { value: g.ob, onChange: (e) => setGoal(g.id, { ob: e.target.value }), placeholder: "Moja g\u0142\xF3wna WEWN\u0118TRZNA przeszkoda\u2026", style: { ...sm, marginTop: 6 } }), /* @__PURE__ */ React.createElement("textarea", { value: g.plan, onChange: (e) => setGoal(g.id, { plan: e.target.value }), placeholder: "Je\u015Bli [sytuacja], to [konkretne dzia\u0142anie].", style: { ...ta, marginTop: 6, minHeight: 48 } }));
+  }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--faint)", textAlign: "center", margin: "4px 8px 16px", lineHeight: 1.5 } }, "Trzy cele to limit, nie minimum. Wszystko inne idzie do \u201EWstrzymane\u201D w Mapie projekt\xF3w.")), seg === "12t" && /* @__PURE__ */ React.createElement(React.Fragment, null, !gs.cycle.start ? /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 14, textAlign: "center" }, pad: 18 }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 800, fontSize: 18 } }, "Rok w 12 tygodni"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, color: "var(--muted)", marginTop: 6, lineHeight: 1.5 } }, "Cykl startuje w najbli\u017Cszy poniedzia\u0142ek. Dostaniesz gotowe taktyki pod Cel 100k \u2014 edytuj je pod siebie."), /* @__PURE__ */ React.createElement("button", { onClick: startCycle, style: btnPrimary }, "Zacznij cykl 12 tygodni")) : /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 14 }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 800, fontSize: 18 } }, w < 1 ? "Start " + gs.cycle.start : w > 12 ? "Tydzie\u0144 13 \xB7 podsumowanie" : `Tydzie\u0144 ${w} / 12`), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--muted)" } }, "od ", gs.cycle.start)), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 3, marginTop: 10 } }, Array.from({ length: 12 }, (_, i) => {
+    const s = gsScore(gs, i + 1);
+    const past = i + 1 < w;
+    const col = !past && i + 1 !== w ? "var(--surface2)" : s && s.pct >= 85 ? "var(--green)" : s && s.pct >= 70 ? "var(--gold)" : past ? "var(--red)" : "rgba(245,181,61,.4)";
+    return /* @__PURE__ */ React.createElement("div", { key: i, title: s ? s.pct + "%" : "", style: { height: 22, borderRadius: 5, background: col, display: "grid", placeItems: "center", fontSize: 9, fontWeight: 800, color: "#111" } }, past && s ? s.pct : i + 1);
+  })), w > 12 && /* @__PURE__ */ React.createElement("button", { onClick: () => setGs((g) => ({ ...g, cycle: { ...g.cycle, start: "", done: {} } })), style: { ...btnPrimary, background: "var(--surface2)", color: "var(--text)", border: "1px solid var(--line2)" } }, "Zaplanuj kolejny cykl")), /* @__PURE__ */ React.createElement("div", { style: sectionTitle }, "Taktyki"), /* @__PURE__ */ React.createElement(Card, { pad: 12 }, (gs.cycle.tactics || []).slice().sort((a, b) => a.w - b.w).map((t) => /* @__PURE__ */ React.createElement("div", { key: t.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "7px 2px", borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 10.5, fontWeight: 800, color: t.w ? "var(--blue)" : "var(--gold2)", width: 54 } }, t.w ? "tydz. " + t.w : "co tydz."), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontSize: 13 } }, t.t), /* @__PURE__ */ React.createElement("button", { onClick: () => delTac(t.id), style: { background: "none", border: "none", color: "var(--faint)", cursor: "pointer", fontSize: 14 } }, "\u2715"))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 10 } }, /* @__PURE__ */ React.createElement("input", { value: nt, onChange: (e) => setNt(e.target.value), placeholder: "Nowa taktyka (konkretne dzia\u0142anie)", style: { ...sm, flex: 1 } }), /* @__PURE__ */ React.createElement("input", { inputMode: "numeric", value: nw, onChange: (e) => setNw(e.target.value), style: { ...sm, width: 50, textAlign: "center" }, "aria-label": "tydzie\u0144 (0 = co tydzie\u0144)" }), /* @__PURE__ */ React.createElement("button", { onClick: addTac, style: { ...btnPrimary, marginTop: 0, width: "auto", padding: "0 14px" } }, "+")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--faint)", marginTop: 6 } }, "Liczba = numer tygodnia, 0 = co tydzie\u0144.")))), seg === "tydz" && /* @__PURE__ */ React.createElement(React.Fragment, null, cur ? /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 14 }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, letterSpacing: ".08em", color: "var(--gold2)" } }, "WYNIK WYKONANIA \xB7 TYDZIE\u0143 ", w), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 800, fontSize: 30, color: cur.pct >= 85 ? "var(--green2)" : cur.pct >= 70 ? "var(--gold2)" : "var(--red)" } }, cur.pct, "%")), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", textAlign: "right" } }, cur.dn, "/", cur.n, " taktyk", /* @__PURE__ */ React.createElement("br", null), "cel: 85%")), cur.tac.map((t) => {
+    const on = !!((gs.cycle.done || {})["w" + w] || {})[t.id];
+    return /* @__PURE__ */ React.createElement("div", { key: t.id, onClick: () => toggle(t.id), style: { display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderTop: "1px solid var(--line)", cursor: "pointer" } }, /* @__PURE__ */ React.createElement(CheckBox, { on }), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontSize: 13.5, textDecoration: on ? "line-through" : "none", color: on ? "var(--muted)" : "var(--text)" } }, t.t));
+  }), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--faint)", marginTop: 6 } }, "Zrobione albo nie \u2014 bez \u201Eprawie\u201D.")) : /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 14, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5 }, pad: 14 }, "Najpierw uruchom cykl w zak\u0142adce \u201E12 tygodni\u201D."), /* @__PURE__ */ React.createElement("div", { style: sectionTitle }, "Przegl\u0105d tygodnia (20 min)"), /* @__PURE__ */ React.createElement(Card, { pad: 14 }, [["win", "Co zadzia\u0142a\u0142o? (konkret, liczba)"], ["miss", "Co nie wysz\u0142o i DLACZEGO?"], ["fix", "Jedna zmiana na przysz\u0142y tydzie\u0144"]].map(([k, l]) => /* @__PURE__ */ React.createElement("textarea", { key: k, value: rv[k] || "", onChange: (e) => setRv({ [k]: e.target.value }), placeholder: l, style: { ...ta, minHeight: 48, marginBottom: 8 } })), /* @__PURE__ */ React.createElement("button", { onClick: report, style: btnPrimary }, copied ? "\u2713 Skopiowano" : "\u{1F4E4} Wy\u015Blij raport tygodnia zaufanej osobie"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--faint)", marginTop: 8, lineHeight: 1.45 } }, "W badaniu Gail Matthews osoby, kt\xF3re wysy\u0142a\u0142y cotygodniowy raport znajomemu, osi\u0105ga\u0142y cele najcz\u0119\u015Bciej. Wybierz jedn\u0105 osob\u0119 i wysy\u0142aj co niedziel\u0119."))));
+}
+const gsDgLine = () => {
+  try {
+    const bp = lsJSON("mp_bizplan_v1", null);
+    if (!bp || !bp.gs) return null;
+    const gs = { ...GS_SEED, ...bp.gs, cycle: { ...GS_SEED.cycle, ...bp.gs.cycle || {} } };
+    const w = gsWeekNo(gs.cycle.start);
+    const sc = w >= 1 && w <= 12 ? gsScore(gs, w) : null;
+    return `SYSTEM CELOW 2027: cele: ${gs.goals.map((g) => `${g.t} [dzialanie: ${g.lead} ${gsLeadThisWeek(g, gs)}/${g.target} w tym tyg.]`).join("; ")}. Cykl 12 tyg.: ${gs.cycle.start ? `tydzien ${w}/12, wynik wykonania ${sc ? sc.pct + "%" : "-"} (cel 85%)` : "nie rozpoczety"}.`;
+  } catch (e) {
+    return null;
+  }
+};
+
 const BP_VENTURES = [
   {
     id: "trading",
@@ -7283,7 +7425,7 @@ const bpVal = (bp, v, sid) => {
 };
 function BiznesPlan({ bizplan, setBizplan }) {
   const bp = bizplan || {};
-  const [view, setView] = useState("map");
+  const [view, setView] = useState("cele");
   const [busyId, setBusyId] = useState(null);
   const [drafts, setDrafts] = useState({});
   const meta = bp.meta || {};
@@ -7341,10 +7483,10 @@ Nast\u0119pny krok: ${m.next || "\u2014"}
   const ta = { ...inputStyle, width: "100%", minHeight: 84, resize: "vertical", lineHeight: 1.5, fontFamily: "var(--body)", fontSize: 13 };
   const small = { ...inputStyle, padding: "8px 10px", fontSize: 13 };
   const cur = BP_VENTURES.find((v) => v.id === view);
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("header", { style: { paddingTop: 26 } }, /* @__PURE__ */ React.createElement("h1", { style: { margin: 0, fontFamily: "var(--display)", fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" } }, "Biznes Plan \u{1F4CB}"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--muted)", fontSize: 13, marginTop: 4, lineHeight: 1.5 } }, "Mapa projekt\xF3w + plan dla ka\u017Cdego. My\u015Bl w zeszycie, tu zapisuj ustalenia i liczby.")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 14, overflowX: "auto" }, className: "noscroll" }, [["map", "\u{1F5FA}\uFE0F Mapa"], ...order.map((id) => {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("header", { style: { paddingTop: 26 } }, /* @__PURE__ */ React.createElement("h1", { style: { margin: 0, fontFamily: "var(--display)", fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" } }, "Biznes Plan \u{1F4CB}"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--muted)", fontSize: 13, marginTop: 4, lineHeight: 1.5 } }, "Mapa projekt\xF3w + plan dla ka\u017Cdego. My\u015Bl w zeszycie, tu zapisuj ustalenia i liczby.")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 14, overflowX: "auto" }, className: "noscroll" }, [["cele", "\u{1F3AF} Cele 2027"], ["map", "\u{1F5FA}\uFE0F Mapa"], ...order.map((id) => {
     const v = BP_VENTURES.find((x) => x.id === id);
     return [id, `${v.e} ${v.n}`];
-  })].map(([id, l]) => /* @__PURE__ */ React.createElement("button", { key: id, onClick: () => setView(id), style: { flexShrink: 0, padding: "8px 12px", borderRadius: 11, cursor: "pointer", fontSize: 13, fontWeight: 700, border: view === id ? "1.5px solid var(--gold)" : "1px solid var(--line2)", background: view === id ? "rgba(245,181,61,.12)" : "var(--surface)", color: view === id ? "var(--gold2)" : "var(--muted)" } }, l))), view === "map" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 700, fontSize: 15 } }, "Wizja: 31.12.2027"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)", margin: "4px 0 8px", lineHeight: 1.45 } }, "Konkretnie: ile zarabiasz i z czego, ile masz oszcz\u0119dno\u015Bci, gdzie mieszkasz, jak wygl\u0105da Tw\xF3j dzie\u0144, rodzina, cia\u0142o."), /* @__PURE__ */ React.createElement("textarea", { value: bp.vision || "", onChange: (e) => setBizplan((p) => ({ ...p, vision: e.target.value })), placeholder: "31 grudnia 2027 jestem\u2026", style: ta })), /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 10, border: hoursUsed > hoursAvail ? "1px solid var(--red)" : void 0 }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13.5, fontWeight: 700 } }, "Czas na projekty: ", hoursUsed, " / ", hoursAvail, " h tygodniowo"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: hoursUsed > hoursAvail ? "var(--red)" : active.length > 2 ? "var(--amber)" : "var(--muted)", marginTop: 3 } }, hoursUsed > hoursAvail ? "Planujesz wi\u0119cej, ni\u017C masz czasu \u2014 co\u015B wstrzymaj." : active.length > 2 ? `${active.length} aktywne projekty. Zasada: 1 g\u0142\xF3wny + 1 poboczny, reszta \u201EWstrzymany\u201D.` : "Dobrze: fokus na maks. 2 projektach.")), /* @__PURE__ */ React.createElement("label", { style: { fontSize: 11, color: "var(--muted)", textAlign: "center" } }, "Masz h/tydz.", /* @__PURE__ */ React.createElement("input", { inputMode: "numeric", value: bp.hours ?? "", placeholder: "15", onChange: (e) => setBizplan((p) => ({ ...p, hours: e.target.value })), style: { ...small, width: 64, textAlign: "center", marginTop: 4 } })))), /* @__PURE__ */ React.createElement("div", { style: sectionTitle }, "Projekty \u2014 kolejno\u015B\u0107 = priorytet"), order.map((id, i) => {
+  })].map(([id, l]) => /* @__PURE__ */ React.createElement("button", { key: id, onClick: () => setView(id), style: { flexShrink: 0, padding: "8px 12px", borderRadius: 11, cursor: "pointer", fontSize: 13, fontWeight: 700, border: view === id ? "1.5px solid var(--gold)" : "1px solid var(--line2)", background: view === id ? "rgba(245,181,61,.12)" : "var(--surface)", color: view === id ? "var(--gold2)" : "var(--muted)" } }, l))), view === "cele" && React.createElement(GoalSystem, { bizplan: bp, setBizplan }), view === "map" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 700, fontSize: 15 } }, "Wizja: 31.12.2027"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)", margin: "4px 0 8px", lineHeight: 1.45 } }, "Konkretnie: ile zarabiasz i z czego, ile masz oszcz\u0119dno\u015Bci, gdzie mieszkasz, jak wygl\u0105da Tw\xF3j dzie\u0144, rodzina, cia\u0142o."), /* @__PURE__ */ React.createElement("textarea", { value: bp.vision || "", onChange: (e) => setBizplan((p) => ({ ...p, vision: e.target.value })), placeholder: "31 grudnia 2027 jestem\u2026", style: ta })), /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 10, border: hoursUsed > hoursAvail ? "1px solid var(--red)" : void 0 }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13.5, fontWeight: 700 } }, "Czas na projekty: ", hoursUsed, " / ", hoursAvail, " h tygodniowo"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: hoursUsed > hoursAvail ? "var(--red)" : active.length > 2 ? "var(--amber)" : "var(--muted)", marginTop: 3 } }, hoursUsed > hoursAvail ? "Planujesz wi\u0119cej, ni\u017C masz czasu \u2014 co\u015B wstrzymaj." : active.length > 2 ? `${active.length} aktywne projekty. Zasada: 1 g\u0142\xF3wny + 1 poboczny, reszta \u201EWstrzymany\u201D.` : "Dobrze: fokus na maks. 2 projektach.")), /* @__PURE__ */ React.createElement("label", { style: { fontSize: 11, color: "var(--muted)", textAlign: "center" } }, "Masz h/tydz.", /* @__PURE__ */ React.createElement("input", { inputMode: "numeric", value: bp.hours ?? "", placeholder: "15", onChange: (e) => setBizplan((p) => ({ ...p, hours: e.target.value })), style: { ...small, width: 64, textAlign: "center", marginTop: 4 } })))), /* @__PURE__ */ React.createElement("div", { style: sectionTitle }, "Projekty \u2014 kolejno\u015B\u0107 = priorytet"), order.map((id, i) => {
     const v = BP_VENTURES.find((x) => x.id === id);
     const m = meta[id] || {};
     const paused = m.stage === "Wstrzymany";
