@@ -192,7 +192,7 @@ const SEED_SUPPS = [
     { id: "s_mag", name: "Magnez (glicynian)", dose: "400 mg", when: "Wieczór" },
     { id: "s_ashwa", name: "Ashwagandha KSM-66", dose: "600 mg", when: "Wieczór" },
 ];
-const SYNC_KEYS = ["mp_profile_v1", "mp_habits_v1", "mp_supps_v1", "mp_daily_v4", "mp_tasks_v1", "mp_finance_v1", "mp_events_v1", "mp_diet_v1", "mp_shopping_v1", "mp_saas_v1", "mp_measures_v1", "mp_books_v1", "mp_prs_v1", "mp_review_v1", "mp_medi_v1", "mp_voice_v1", "mp_blood_v1", "mp_charisma_v1", "mp_journal_v1", "mp_bizplan_v1", "mp_trades_v1", "mp_rest_v1", "mp_gate_v1"];
+const SYNC_KEYS = ["mp_profile_v1", "mp_habits_v1", "mp_supps_v1", "mp_daily_v4", "mp_tasks_v1", "mp_finance_v1", "mp_events_v1", "mp_diet_v1", "mp_shopping_v1", "mp_saas_v1", "mp_measures_v1", "mp_books_v1", "mp_prs_v1", "mp_review_v1", "mp_medi_v1", "mp_voice_v1", "mp_blood_v1", "mp_charisma_v1", "mp_journal_v1", "mp_bizplan_v1", "mp_trades_v1", "mp_rest_v1", "mp_gate_v1", "mp_fav_v1"];
 const SYNC_SQL = `create table if not exists mp_state (
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
   key text not null,
@@ -1346,7 +1346,7 @@ export default function App() {
     useEffect(() => {
         if (!ready)
             return;
-        const map = { mp_profile_v1: setProfile, mp_habits_v1: setHabits, mp_supps_v1: setSupps, mp_daily_v4: setDaily, mp_tasks_v1: setTasks, mp_finance_v1: setFinance, mp_events_v1: setEvents, mp_diet_v1: (v) => setDiet({ ...SEED_DIET, ...v }), mp_shopping_v1: setShopping, mp_saas_v1: setSaasData, mp_measures_v1: setMeasures, mp_books_v1: setBooks, mp_prs_v1: setPrs, mp_review_v1: setWeekFocus, mp_medi_v1: setMedi, mp_voice_v1: setVoiceLog, mp_blood_v1: setBloodLog, mp_charisma_v1: setCharisma, mp_journal_v1: setJournal, mp_bizplan_v1: setBizplan, mp_trades_v1: (v) => setTrades({ ...SEED_TRADES, ...v }), mp_rest_v1: (v) => restStore.replace(v), mp_gate_v1: (v) => gateStore.replace(v) };
+        const map = { mp_profile_v1: setProfile, mp_habits_v1: setHabits, mp_supps_v1: setSupps, mp_daily_v4: setDaily, mp_tasks_v1: setTasks, mp_finance_v1: setFinance, mp_events_v1: setEvents, mp_diet_v1: (v) => setDiet({ ...SEED_DIET, ...v }), mp_shopping_v1: setShopping, mp_saas_v1: setSaasData, mp_measures_v1: setMeasures, mp_books_v1: setBooks, mp_prs_v1: setPrs, mp_review_v1: setWeekFocus, mp_medi_v1: setMedi, mp_voice_v1: setVoiceLog, mp_blood_v1: setBloodLog, mp_charisma_v1: setCharisma, mp_journal_v1: setJournal, mp_bizplan_v1: setBizplan, mp_trades_v1: (v) => setTrades({ ...SEED_TRADES, ...v }), mp_rest_v1: (v) => restStore.replace(v), mp_gate_v1: (v) => gateStore.replace(v), mp_fav_v1: (v) => favStore.replace(v) };
         sync.onRemote = (k, v) => { if (v != null && map[k]) map[k](v); };
         sync.init();
     }, [ready]);
@@ -1521,6 +1521,7 @@ export default function App() {
             React.createElement(Toast, { toast: toast, onClose: () => setToast(null), onGo: () => { if (toast && toast.icon === "piggy")
                     setTab("money"); setToast(null); } }),
             React.createElement("div", { key: tab, className: "mp-content", style: { animation: "fade .25s ease", padding: "0 16px" } },
+                !["home", "train", "diet", "habits", "money", "trade", "rozwoj"].includes(tab) && React.createElement(BackBar, { tab, setTab }),
                 tab === "home" && React.createElement(Home, { profile, setProfile, habits, supps, day, daily, tasks, finance, diet, toggleHabit, setTab, resetStats, journal, setJournal, setDay }),
                 tab === "rozwoj" && React.createElement(DevHub, { setTab, profile, daily, habits, measures, medi, voiceLog, books, prs, diet }),
                 tab === "cal" && React.createElement(Calendar, { events, setEvents, daily, habits, finance, profile, setProfile, setToast }),
@@ -3958,6 +3959,104 @@ const dgExtraLines = (daily, diet) => {
   }
   return L;
 };
+
+const favStore = {
+  v: lsJSON("mp_fav_v1", ["testo", "looksmax", "bizplan"]),
+  subs: /* @__PURE__ */ new Set(),
+  toggle(t) {
+    this.v = this.v.includes(t) ? this.v.filter((x) => x !== t) : [...this.v, t];
+    save("mp_fav_v1", this.v);
+    this.subs.forEach((f) => f(this.v));
+  },
+  replace(v) {
+    this.v = Array.isArray(v) ? v : [];
+    this.subs.forEach((f) => f(this.v));
+  }
+};
+const HUB_NAMES = {};
+function DevHub({ setTab, profile, daily, habits, measures, medi, voiceLog, books, prs, diet }) {
+  const [q, setQ] = useState("");
+  const [fav, setFav] = useState(favStore.v);
+  useEffect(() => {
+    favStore.subs.add(setFav);
+    return () => favStore.subs.delete(setFav);
+  }, []);
+  const go = (t) => {
+    buzz(6);
+    setTab(t);
+  };
+  const streakOf = (has) => {
+    let n = 0;
+    const c = /* @__PURE__ */ new Date(todayKey() + "T12:00:00");
+    if (!has(keyOf(c))) c.setDate(c.getDate() - 1);
+    while (has(keyOf(c))) {
+      n++;
+      c.setDate(c.getDate() - 1);
+    }
+    return n;
+  };
+  const mset = new Set((medi || []).map((s) => s.date));
+  const mStreak = streakOf((k) => mset.has(k));
+  const vStreak = streakOf((k) => voiceLog && voiceLog[k] && (voiceLog[k].d || voiceLog[k].g || voiceLog[k].p));
+  const pts = (measures || []).filter((m) => m.weight > 0);
+  const lastW = pts.length ? pts.slice().sort((a, b) => a.date < b.date ? 1 : -1)[0].weight : profile.weight;
+  const bc = (books || []).length;
+  const SECTIONS = [
+    { title: "Cia\u0142o", items: [
+      { e: "\u{1FA7A}", n: "Zdrowie & cia\u0142o", s: `Waga ${lastW} \u2192 ${profile.goal} kg \xB7 sen \xB7 badania`, t: "health", c: "167,139,250" },
+      { e: "\u{1F48E}", n: "Looksmax", s: "Sk\xF3ra, w\u0142osy, wygl\u0105d", t: "looksmax", c: "236,72,153" },
+      { e: "\u{1F525}", n: "Testosteron", s: "Naturalna optymalizacja", t: "testo", c: "248,113,113" }
+    ] },
+    { title: "Umys\u0142 & charakter", items: [
+      { e: "\u{1F9D8}", n: "Medytacja", s: mStreak ? `\u{1F525} ${mStreak} dni z rz\u0119du` : "Ostro\u015B\u0107 umys\u0142u", t: "medytacja", c: "250,204,21" },
+      { e: "\u{1F9E0}", n: "Reset g\u0142owy", s: "Gdy siada psychika", t: "resilience", c: "96,165,250" },
+      { e: "\u{1F5E3}\uFE0F", n: "Charyzma", s: "Rozmowy i wp\u0142yw", t: "charisma", c: "192,132,252" },
+      { e: "\u{1F399}\uFE0F", n: "G\u0142os & postawa", s: vStreak ? `\u{1F525} ${vStreak} dni z rz\u0119du` : "Mowa i sylwetka", t: "glos", c: "45,212,191" },
+      { e: "\u{1F4DA}", n: "Czytanie", s: `${bc} ${bc === 1 ? "pozycja" : "pozycji"}`, t: "books", c: "251,146,60" }
+    ] },
+    { title: "Biznes & wolno\u015B\u0107 finansowa", items: [
+      { e: "\u{1F4CB}", n: "Biznes Plan", s: "Plan firmy krok po kroku", t: "bizplan", c: "56,189,248" },
+      { e: "\u{1F680}", n: "Biznes / SaaS", s: "Pipeline i przychody", t: "saas", c: "16,185,129" },
+      { e: "\u{1F6AA}", n: "Brama wyj\u015Bcia", s: "Warunki odej\u015Bcia z Mauser", t: "brama", c: "250,204,21" }
+    ] },
+    { title: "Organizacja", items: [
+      { e: "\u2705", n: "Zadania", s: "Lista rzeczy do zrobienia", t: "tasks", c: "96,165,250" },
+      { e: "\u{1F4C5}", n: "Kalendarz", s: "Zmiany i wydarzenia", t: "cal", c: "96,165,250" },
+      { e: "\u{1F5D3}\uFE0F", n: "Plan zmian", s: "Tydzie\u0144 pod grafik", t: "shifts", c: "96,165,250" },
+      { e: "\u{1F4CA}", n: "Przegl\u0105d tygodnia", s: "Niedziela, 15 min", t: "review", c: "245,181,61" },
+      { e: "\u23F0", n: "Alarmy", s: "Pobudka, suple, trening", t: "alarms", c: "245,181,61" },
+      { e: "\u{1F9ED}", n: "\u015Acie\u017Cka rozwoju", s: "Etapy i kolejno\u015B\u0107", t: "devpath", c: "74,222,128" }
+    ] }
+  ];
+  const all = SECTIONS.flatMap((s) => s.items);
+  all.forEach((i) => {
+    HUB_NAMES[i.t] = i.n;
+  });
+  const nq = fnorm(q.trim());
+  const match = (i) => !nq || fnorm(i.n + " " + i.s).includes(nq);
+  const favItems = fav.map((t) => all.find((i) => i.t === t)).filter(Boolean);
+  const Tile = ({ i }) => {
+    const on = fav.includes(i.t);
+    return /* @__PURE__ */ React.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => go(i.t), style: { width: "100%", height: "100%", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 16, padding: "13px 12px", textAlign: "left", cursor: "pointer", color: "var(--text)", display: "flex", alignItems: "center", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 38, height: 38, flexShrink: 0, borderRadius: 11, background: `rgba(${i.c},.14)`, display: "grid", placeItems: "center", fontSize: 19 } }, i.e), /* @__PURE__ */ React.createElement("div", { style: { minWidth: 0, paddingRight: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: 13.5, lineHeight: 1.2 } }, i.n), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--muted)", marginTop: 2, lineHeight: 1.25 } }, i.s))), /* @__PURE__ */ React.createElement("button", { "aria-label": "Przypnij", onClick: (e) => {
+      e.stopPropagation();
+      buzz(5);
+      favStore.toggle(i.t);
+    }, style: { position: "absolute", top: 6, right: 6, background: "none", border: "none", cursor: "pointer", padding: 4, color: on ? "var(--gold2)" : "var(--faint)", fontSize: 14, lineHeight: 1 } }, on ? "\u2605" : "\u2606"));
+  };
+  const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 9 };
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("header", { style: { paddingTop: 26 } }, /* @__PURE__ */ React.createElement("h1", { style: { margin: 0, fontFamily: "var(--display)", fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" } }, "Rozw\xF3j"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--muted)", fontSize: 13, marginTop: 2 } }, "Przypnij \u2605 to, z czego korzystasz najcz\u0119\u015Bciej")), /* @__PURE__ */ React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u{1F50D}  Szukaj: np. medytacja, biznes, sen\u2026", style: { ...inputStyle, width: "100%", marginTop: 16 } }), !nq && /* @__PURE__ */ React.createElement("button", { onClick: () => go("ai"), style: { width: "100%", marginTop: 12, background: "linear-gradient(135deg, rgba(245,181,61,.16), rgba(91,140,255,.13))", border: "1px solid var(--line2)", borderRadius: 18, padding: 15, textAlign: "left", cursor: "pointer", color: "var(--text)", display: "flex", alignItems: "center", gap: 13 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 28 } }, "\u{1F9E0}"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 700, fontSize: 16 } }, "Druga G\u0142owa"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 1 } }, "Zna Twoje dane: diet\u0119, trening, trading, finanse")), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--faint)", fontSize: 18 } }, "\u2192")), !nq && favItems.length > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: sectionTitle }, "\u2605 Przypi\u0119te"), /* @__PURE__ */ React.createElement("div", { style: grid }, favItems.map((i) => /* @__PURE__ */ React.createElement(Tile, { key: i.t, i })))), SECTIONS.map((s) => {
+    const items = s.items.filter(match);
+    if (!items.length) return null;
+    return /* @__PURE__ */ React.createElement("div", { key: s.title }, /* @__PURE__ */ React.createElement("div", { style: sectionTitle }, s.title), /* @__PURE__ */ React.createElement("div", { style: grid }, items.map((i) => /* @__PURE__ */ React.createElement(Tile, { key: i.t, i }))));
+  }), nq && !all.some(match) && /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 16, textAlign: "center", color: "var(--muted)" } }, "Nic nie znaleziono dla \u201E", q, "\u201D"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--faint)", textAlign: "center", margin: "16px 0 8px" } }, "Trening, Dieta, Nawyki, Finanse i Trading masz na dolnym pasku."));
+}
+function BackBar({ tab, setTab }) {
+  const name = HUB_NAMES[tab] || (tab === "ai" ? "Druga G\u0142owa" : "");
+  return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, paddingTop: 14, marginBottom: -12 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
+    buzz(5);
+    setTab("rozwoj");
+  }, style: { ...iconBtn, width: "auto", padding: "0 12px", height: 34, fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, color: "var(--muted)" } }, /* @__PURE__ */ React.createElement(ChevronLeft, { size: 16 }), "Rozw\xF3j"), name && /* @__PURE__ */ React.createElement("span", { style: { fontSize: 12, color: "var(--faint)" } }, "/ ", name));
+}
 
 /* ───────────────────────── DIET / FITATU-STYLE ───────────────────────── */
 const SEED_DIET = { age: 25, sex: "m", activity: "mod", surplus: 400, proteinPerKg: 2.0, fatPerKg: 0.9 };
@@ -7341,89 +7440,4 @@ function WimHof({ onSession }) {
         phase === "hold" && React.createElement("button", { onClick: abort, style: { background: "transparent", border: "none", color: "var(--faint)", fontSize: 12, cursor: "pointer", padding: 10, display: "block", margin: "8px auto 0" } }, "Przerwij")));
 }
 /* ═══════════════ ROZWÓJ — pulpit 8 płaszczyzn ═══════════════ */
-function DevHub({ setTab, profile, daily, habits, measures, medi, voiceLog, books, prs, diet }) {
-    const go = (t) => { buzz(6); setTab(t); };
-    const pad = (n) => String(n).padStart(2, "0");
-    const keyOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-    const days7 = [];
-    {
-        const t = new Date();
-        for (let i = 0; i < 7; i++) {
-            const d = new Date(t);
-            d.setDate(t.getDate() - i);
-            days7.push(keyOf(d));
-        }
-    }
-    const trainWk = days7.filter((k) => daily[k] && daily[k].workoutDone).length;
-    const mset = new Set((medi || []).map((s) => s.date));
-    let mStreak = 0;
-    {
-        let c = new Date();
-        if (!mset.has(keyOf(c)))
-            c.setDate(c.getDate() - 1);
-        while (mset.has(keyOf(c))) {
-            mStreak++;
-            c.setDate(c.getDate() - 1);
-        }
-    }
-    const vAct = (k) => voiceLog && voiceLog[k] && (voiceLog[k].d || voiceLog[k].g || voiceLog[k].p);
-    let vStreak = 0;
-    {
-        let c = new Date();
-        if (!vAct(keyOf(c)))
-            c.setDate(c.getDate() - 1);
-        while (vAct(keyOf(c))) {
-            vStreak++;
-            c.setDate(c.getDate() - 1);
-        }
-    }
-    const bc = (books || []).length;
-    const pts = (measures || []).filter((m) => m.weight > 0);
-    const lastW = pts.length ? pts.slice().sort((a, b) => (a.date < b.date ? 1 : -1))[0].weight : profile.weight;
-    const planes = [
-        { e: "💪", n: "Sylwetka & trening", s: `${trainWk} ${trainWk === 1 ? "trening" : "treningi"} w tyg.`, t: "train", c: "245,181,61" },
-        { e: "🍎", n: "Dieta & zdrowie", s: "Makra i posiłki", t: "diet", c: "74,222,128" },
-        { e: "⚖️", n: "Masa", s: `${lastW} → ${profile.goal} kg`, t: "health", c: "91,140,255" },
-        { e: "💎", n: "Looksmax", s: "Wygląd na maxa", t: "looksmax", c: "236,72,153" },
-        { e: "📋", n: "Biznes Plan", s: "Kompletny plan firmy", t: "bizplan", c: "56,189,248" },
-        { e: "🔥", n: "Testosteron", s: "Optymalizacja", t: "testo", c: "248,113,113" },
-        { e: "🗣️", n: "Charyzma", s: "Rozmowy i wpływ", t: "charisma", c: "192,132,252" },
-        { e: "🎙️", n: "Głos & postawa", s: vStreak ? `🔥 ${vStreak} dni z rzędu` : "Mowa i sylwetka", t: "glos", c: "45,212,191" },
-        { e: "🧘", n: "Medytacja", s: mStreak ? `🔥 ${mStreak} dni z rzędu` : "Ostrość umysłu", t: "medytacja", c: "250,204,21" },
-        { e: "🚪", n: "Brama wyjścia", s: "Warunki odejścia z Mauser", t: "brama", c: "250,204,21" },
-        { e: "📈", n: "Trading", s: "Dziennik tradów · konta prop", t: "trade", c: "34,197,94" },
-        { e: "📚", n: "Czytanie", s: `${bc} ${bc === 1 ? "pozycja" : "pozycji"}`, t: "books", c: "251,146,60" },
-    ];
-    const tools = [
-        { e: "✅", n: "Zadania", t: "tasks" },
-        { e: "💰", n: "Finanse", t: "money" },
-        { e: "📅", n: "Kalendarz", t: "cal" },
-        { e: "🗓️", n: "Plan zmian", t: "shifts" },
-        { e: "📊", n: "Przegląd tygodnia", t: "review" },
-        { e: "🩺", n: "Zdrowie & Ciało", t: "health" },
-        { e: "🚀", n: "Biznes / SaaS", t: "saas" },
-        { e: "⏰", n: "Alarmy", t: "alarms" },
-        { e: "🧠", n: "Reset głowy", t: "resilience" },
-        { e: "🧭", n: "Ścieżka rozwoju", t: "devpath" },
-    ];
-    return (React.createElement("div", null,
-        React.createElement("header", { style: { paddingTop: 26 } },
-            React.createElement("h1", { style: { margin: 0, fontFamily: "var(--display)", fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" } }, "Rozw\u00F3j"),
-            React.createElement("div", { style: { color: "var(--muted)", fontSize: 13, marginTop: 2 } }, "Ka\u017Cda p\u0142aszczyzna pod maksymalny grind")),
-        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 11, marginTop: 18 } }, planes.map((p) => (React.createElement("button", { key: p.t, onClick: () => go(p.t), style: { background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 18, padding: 14, textAlign: "left", cursor: "pointer", color: "var(--text)" } },
-            React.createElement("div", { style: { width: 42, height: 42, borderRadius: 13, background: `rgba(${p.c},.14)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 21, marginBottom: 10 } }, p.e),
-            React.createElement("div", { style: { fontWeight: 700, fontSize: 13.5, lineHeight: 1.2 } }, p.n),
-            React.createElement("div", { style: { fontSize: 11.5, color: `rgb(${p.c})`, marginTop: 3, fontWeight: 600 } }, p.s))))),
-        React.createElement("div", { style: sectionTitle }, "M\u00F3zg przedsi\u0119biorcy"),
-        React.createElement("button", { onClick: () => go("ai"), style: { width: "100%", background: "linear-gradient(135deg, rgba(245,181,61,.16), rgba(91,140,255,.13))", border: "1px solid var(--line2)", borderRadius: 18, padding: 16, textAlign: "left", cursor: "pointer", color: "var(--text)", display: "flex", alignItems: "center", gap: 14 } },
-            React.createElement("div", { style: { fontSize: 30 } }, "\uD83E\uDDE0"),
-            React.createElement("div", { style: { flex: 1, minWidth: 0 } },
-                React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 700, fontSize: 16 } }, "Druga G\u0142owa"),
-                React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 1 } }, "Tw\u00F3j m\u00F3zg-wsp\u00F3lnik. Zna Twoje dane i widzi ca\u0142o\u015B\u0107.")),
-            React.createElement("span", { style: { color: "var(--faint)", fontSize: 18 } }, "\u2192")),
-        React.createElement("div", { style: sectionTitle }, "Codzienne narz\u0119dzia"),
-        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } }, tools.map((tt) => (React.createElement("button", { key: tt.n, onClick: () => go(tt.t), style: { background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 14, padding: "13px 12px", textAlign: "left", cursor: "pointer", color: "var(--text)", display: "flex", alignItems: "center", gap: 10 } },
-            React.createElement("span", { style: { fontSize: 18 } }, tt.e),
-            React.createElement("span", { style: { fontSize: 12.5, fontWeight: 600, lineHeight: 1.2 } }, tt.n))))),
-        React.createElement("div", { style: { height: 16 } })));
-}
+
