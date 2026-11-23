@@ -1200,7 +1200,7 @@ export default function App() {
         catch { }
     };
     const tk = todayKey();
-    const day = daily[tk] || { habits: {}, supps: {}, workoutDone: false, workoutId: null, sets: {}, sleep: null, food: [] };
+    const day = (() => { const d = { habits: {}, supps: {}, workoutDone: false, workoutId: null, sets: {}, sleep: null, food: [], ...(daily[tk] || {}) }; d.habits = d.habits || {}; d.supps = d.supps || {}; d.sets = d.sets || {}; d.food = d.food || []; return d; })();
     /* load once */
     useEffect(() => {
         (async () => {
@@ -1395,8 +1395,8 @@ export default function App() {
             return { ...prev, [key]: fn(cur) };
         });
     }, []);
-    const toggleHabit = (id) => { buzz(8); setDay((c) => ({ ...c, habits: { ...c.habits, [id]: !c.habits[id] } })); };
-    const toggleSupp = (id) => { buzz(8); setDay((c) => ({ ...c, supps: { ...c.supps, [id]: !c.supps[id] } })); };
+    const toggleHabit = (id) => { buzz(8); setDay((c) => ({ ...c, habits: { ...(c.habits || {}), [id]: !(c.habits || {})[id] } })); };
+    const toggleSupp = (id) => { buzz(8); setDay((c) => ({ ...c, supps: { ...(c.supps || {}), [id]: !(c.supps || {})[id] } })); };
     /* ── rest timer (lives in App so it survives tab switches) ── */
     const [timer, setTimer] = useState({ dur: 90, left: 90, running: false, label: "Regeneracja" });
     const audioRef = useRef(null);
@@ -1710,6 +1710,7 @@ function sleepPlan(events, k, alarms, daily) {
   else if (s1 === "Nocka") bed = 1470;
   else bed = 1380;
   if (s0 === "Popo\u0142udnie" && s1 === "Nocka") bed = 1500;
+  if (sl.planBed != null && s0 !== "Nocka") bed = +sl.planBed;
   const prevSl = (D[addDays(k, -1)] || {}).sl || {};
   const firstEv = (events || []).filter((e) => e.date === k && e.time && !/Ranka|Popołudnie|Nocka/.test(e.title || "")).map((e) => hm2m(e.time)).sort((a, b) => a - b)[0];
   if (prevSl.bed != null && prevSl.bed < 720) {
@@ -1837,8 +1838,10 @@ function dayItems(events, tasks, k, daily) {
     out.push({ kind: "task", t0, t1: t0 + (+t.min || 30), title: t.title, task: t, hard: false });
   });
   out.sort((a, b) => a.t0 - b.t0);
+  const afterR = (a) => sp.routine != null && !a.par && !a.done && !(a.task && a.task.done) && (a.kind === "task" || a.kind === "block") && a.t0 >= sp.routine && a.t0 < sp.routine + 600;
   out.forEach((a) => {
     a.conf = out.filter((b) => b !== a && b.kind !== "bed" && a.kind !== "bed" && b.kind !== "meal" && a.kind !== "meal" && !(a.kind === "rout" && b.kind === "rout") && (a.hard || b.hard || a.kind === "sleep" || b.kind === "sleep") && !(a.kind === "block" && b.kind === "block") && !(a.kind === "block" && b.kind === "task" || a.kind === "task" && b.kind === "block") && !(a.par && (b.kind === "shift" || b.kind === "event" || b.kind === "block") || b.par && (a.kind === "shift" || a.kind === "event" || a.kind === "block")) && a.t0 < b.t1 && b.t0 < a.t1).map((b) => b.title);
+    if (afterR(a)) a.conf.push("\u{1F319} Rutyna wieczorna = ostatni etap dnia. Przenie\u015B to PRZED rutyn\u0119");
   });
   return out;
 }
@@ -7511,7 +7514,7 @@ function WeeklyReview({ daily, habits, measures, finance, weekFocus, setWeekFocu
     }
     const habTot = habits.length;
     const habPcts = days.map((k) => { const dv = daily[k]; if (!dv || !dv.habits)
-        return null; return habTot ? habits.filter((h) => dv.habits[h.id]).length / habTot : 0; }).filter((v) => v != null);
+        return null; return habTot ? habits.filter((h) => (dv.habits || {})[h.id]).length / habTot : 0; }).filter((v) => v != null);
     const habAvg = habPcts.length ? Math.round(habPcts.reduce((a, b) => a + b, 0) / habPcts.length * 100) : 0;
     const trainDays = days.filter((k) => daily[k] && daily[k].workoutDone).length;
     const loggedDays = days.filter((k) => daily[k]).length;
@@ -8104,7 +8107,7 @@ function dgContext({ profile, daily, habits, measures, finance, diet, books, prs
         }
         const habTot = habits.length;
         const hp = days.map((k) => { const dv = daily[k]; if (!dv || !dv.habits)
-            return null; return habTot ? habits.filter((h) => dv.habits[h.id]).length / habTot : 0; }).filter((v) => v != null);
+            return null; return habTot ? habits.filter((h) => (dv.habits || {})[h.id]).length / habTot : 0; }).filter((v) => v != null);
         const habAvg = hp.length ? Math.round(hp.reduce((a, b) => a + b, 0) / hp.length * 100) : 0;
         const trainDays = days.filter((k) => daily[k] && daily[k].workoutDone).length;
         L.push(`Ostatnie 7 dni: nawyki srednio ${habAvg}%, treningi ${trainDays}.`);
