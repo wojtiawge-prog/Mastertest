@@ -1670,7 +1670,7 @@ const m2hm = (m) => {
   return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
 };
 const dayShift = (events, k) => shiftOfDate(events, k);
-const SHIFT_WIN = { Ranka: [360, 930], "Popo\u0142udnie": [840, 1410], Nocka: [1320, 1440] };
+const SHIFT_WIN = { Ranka: [375, 930], "Popo\u0142udnie": [855, 1410], Nocka: [1345, 1440] };
 const ROUT_M = [{ id: "m1", t: "\u{1F4A7} Woda + \u015Bwiat\u0142o dzienne", m: 2 }, { id: "m2", t: "\u{1F9B7} Z\u0119by, twarz, ubranie", m: 5 }, { id: "m3", t: "\u{1F9CD} Postawa, mewing, szyja", m: 3 }, { id: "m4", t: "\u{1F399}\uFE0F G\u0142os: oddech przepon\u0105 + 2 min czytania na g\u0142os", m: 5 }, { id: "m5", t: "\u{1F48A} Suple", m: 1 }, { id: "m6", t: "\u{1F9D8} Medytacja", m: 10 }, { id: "m7", t: "\u{1F4CB} Rzut oka na plan dnia", m: 2 }];
 const ROUT_E = [{ id: "e1", t: "\u{1F4F5} Ekran od\u0142o\u017Cony, \u015Bwiat\u0142o przygaszone", m: 1 }, { id: "e2", t: "\u{1F6BF} Prysznic", m: 10 }, { id: "e3", t: "\u{1F9B7} Z\u0119by + skincare", m: 5 }, { id: "e4", t: "\u{1F392} Rzeczy na jutro gotowe", m: 2 }, { id: "e5", t: "\u{1F4DD} Dziennik: 3 zdania + 1 moment, w kt\xF3rym by\u0142em pewny siebie", m: 3 }, { id: "e6", t: "\u{1F4DA} Ksi\u0105\u017Cka (papier)", m: 20 }, { id: "e7", t: "\u{1F9D8} Oddech 4-7-8, \u015Bwiat\u0142o off", m: 3 }];
 const sleepBuf = () => {
@@ -1693,13 +1693,13 @@ function sleepPlan(events, k, alarms, daily) {
   let wake = wakeOf(s0), bed = null, note = "", nap = null, dayNap = null;
   if (sp === "Nocka" && s0 !== "Nocka") {
     wake = 780;
-    dayNap = [510, 780];
+    dayNap = [480, 780];
     note = "Po nocce: kr\xF3tki sen do 13:00, wieczorem normalnie \u2014 reset rytmu";
   }
   if (sp === "Nocka" && s0 === "Nocka") {
     wake = 870;
-    dayNap = [510, 870];
-    note = "Mi\u0119dzy nockami: \u015Bpij 8:30\u201314:30 w ciemno\u015Bci";
+    dayNap = [480, 870];
+    note = "Mi\u0119dzy nockami: \u015Bpij 8:00\u201314:30 w ciemno\u015Bci";
   }
   if (s0 === "Nocka") {
     bed = null;
@@ -1770,9 +1770,9 @@ const confOf = (k) => {
 };
 const BLOCK_PLAN = {
   Wolne: [["conf", "", "08:45", 10], ["deep", "\u{1F4BC} Deep work: SkupOS + telefony do skup\xF3w", "09:00", 120], ["trade", "\u{1F4C8} Trading: wykresy, plan, wej\u015Bcia", "11:15", 30], ["train", "\u{1F3CB}\uFE0F Trening PPL", "12:30", 75], ["learn", "\u{1F3AF} Nauka sprzeda\u017Cy i marketingu", "16:00", 45]],
-  "Popo\u0142udnie": [["conf", "", "08:15", 10], ["deep", "\u{1F4BC} Deep work + telefony do skup\xF3w", "08:30", 90], ["train", "\u{1F3CB}\uFE0F Trening PPL", "10:15", 60], ["trade", "\u{1F4C8} Trading: wykresy i plan", "11:45", 20], ["learn", "\u{1F3A7} Nauka sprzeda\u017Cy: audiobook w aucie", "14:00", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "19:00", 60, true]],
-  Ranka: [["read", "\u{1F3A7} Audiobook / podcast w drodze", "06:00", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "10:00", 60, true], ["med", "\u{1F9D8} Medytacja po powrocie (reset)", "15:40", 10], ["trade", "\u{1F4C8} Trading: wykresy i plan", "16:00", 20], ["conf", "", "16:20", 10], ["deep", "\u{1F4BC} Deep work nad biznesem", "16:30", 60], ["learn", "\u{1F3AF} Nauka sprzeda\u017Cy i marketingu", "18:45", 25]],
-  Nocka: [["conf", "", "17:40", 10], ["med", "\u{1F9D8} Medytacja przed drzemk\u0105", "15:15", 10], ["trade", "\u{1F4C8} Trading: szybki przegl\u0105d", "18:00", 20], ["learn", "\u{1F3A7} Audiobook o sprzeda\u017Cy w drodze", "22:00", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "23:30", 60, true]]
+  "Popo\u0142udnie": [["conf", "", "08:15", 10], ["deep", "\u{1F4BC} Deep work + telefony do skup\xF3w", "08:30", 90], ["train", "\u{1F3CB}\uFE0F Trening PPL", "10:15", 60], ["trade", "\u{1F4C8} Trading: wykresy i plan", "11:45", 20], ["learn", "\u{1F3A7} Nauka sprzeda\u017Cy: audiobook w aucie", "14:15", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "19:00", 60, true]],
+  Ranka: [["read", "\u{1F3A7} Audiobook / podcast w drodze", "06:15", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "10:00", 60, true], ["med", "\u{1F9D8} Medytacja po powrocie (reset)", "15:40", 10], ["trade", "\u{1F4C8} Trading: wykresy i plan", "16:00", 20], ["conf", "", "16:20", 10], ["deep", "\u{1F4BC} Deep work nad biznesem", "16:30", 60], ["learn", "\u{1F3AF} Nauka sprzeda\u017Cy i marketingu", "18:45", 25]],
+  Nocka: [["conf", "", "17:40", 10], ["med", "\u{1F9D8} Medytacja przed drzemk\u0105", "15:15", 10], ["trade", "\u{1F4C8} Trading: szybki przegl\u0105d", "18:00", 20], ["learn", "\u{1F3A7} Audiobook o sprzeda\u017Cy w drodze", "22:25", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "23:30", 60, true]]
 };
 const blockStart = (spec, sp) => {
   const m = /^(wake|routine)([+-]\d+)?$/.exec(spec);
@@ -1785,7 +1785,9 @@ const blockStart = (spec, sp) => {
 function dayItems(events, tasks, k, daily) {
   const out = [];
   const sh = dayShift(events, k);
-  if (SHIFT_WIN[sh]) out.push({ kind: "shift", t0: SHIFT_WIN[sh][0], t1: SHIFT_WIN[sh][1], title: `${sh} (z dojazdem)`, hard: true });
+  const SHIFT_LBL = { Ranka: "Ranka \xB7 wyjazd 6:15, praca 7\u201315, powr\xF3t ~15:30", "Popo\u0142udnie": "Popo\u0142udnie \xB7 wyjazd 14:15, praca 15\u201323, powr\xF3t ~23:30", Nocka: "Nocka \xB7 wyjazd 22:25, praca 23\u20137, powr\xF3t ~7:30" };
+  if (SHIFT_WIN[sh]) out.push({ kind: "shift", t0: SHIFT_WIN[sh][0], t1: SHIFT_WIN[sh][1], title: SHIFT_LBL[sh], hard: true });
+  if (dayShift(events, addDays(k, -1)) === "Nocka") out.push({ kind: "shift", t0: 0, t1: 450, title: "Nocka (cd.) \xB7 do 7:00, powr\xF3t ~7:30", hard: true });
   const sp = sleepPlan(events, k, null, daily);
   if (sp.dayNap) out.push({ kind: "sleep", t0: sp.dayNap[0], t1: sp.dayNap[1], title: "\u{1F634} Sen po nocce", hard: false });
   if (sp.nap) out.push({ kind: "sleep", t0: sp.nap[0], t1: sp.nap[1], title: "\u{1F634} Drzemka przed nock\u0105", hard: false });
