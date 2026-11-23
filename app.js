@@ -1510,6 +1510,7 @@ export default function App() {
         { id: "train", label: "Trening", icon: Dumbbell },
         { id: "diet", label: "Dieta", icon: Apple },
         { id: "habits", label: "Nawyki", icon: Check },
+        { id: "money", label: "Finanse", icon: Wallet },
         { id: "rozwoj", label: "Rozwój", icon: TrendingUp },
     ];
     return (React.createElement("div", { style: rootBase },
@@ -1599,7 +1600,7 @@ export default function App() {
             React.createElement("nav", { className: "mp-nav", style: {
                     position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, maxWidth: 460, margin: "0 auto",
                     background: "rgba(16,14,21,.78)", backdropFilter: "blur(18px) saturate(1.25)", borderTop: "1px solid var(--line)",
-                    display: "grid", gridTemplateColumns: "repeat(5,1fr)", padding: "8px 0 calc(8px + env(safe-area-inset-bottom))",
+                    display: "grid", gridTemplateColumns: "repeat(6,1fr)", padding: "8px 0 calc(8px + env(safe-area-inset-bottom))",
                 } }, NAV.map((n) => {
                 const Ic = n.icon;
                 const on = tab === n.id;
