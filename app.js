@@ -1769,10 +1769,10 @@ const confOf = (k) => {
   return { t: c[0], m: c[1], n: n % CONF_CH.length + 1 };
 };
 const BLOCK_PLAN = {
-  Wolne: [["conf", "", "08:45", 10], ["deep", "\u{1F4BC} Deep work: SkupOS + telefony do skup\xF3w", "09:00", 120], ["trade", "\u{1F4C8} Trading: wykresy, plan, wej\u015Bcia", "11:15", 30], ["train", "\u{1F3CB}\uFE0F Trening PPL", "12:30", 75], ["learn", "\u{1F3AF} Nauka sprzeda\u017Cy i marketingu", "16:00", 45]],
-  "Popo\u0142udnie": [["conf", "", "08:15", 10], ["deep", "\u{1F4BC} Deep work + telefony do skup\xF3w", "08:30", 90], ["train", "\u{1F3CB}\uFE0F Trening PPL", "10:15", 60], ["trade", "\u{1F4C8} Trading: wykresy i plan", "11:45", 20], ["learn", "\u{1F3A7} Nauka sprzeda\u017Cy: audiobook w aucie", "14:15", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "19:00", 60, true]],
-  Ranka: [["read", "\u{1F3A7} Audiobook / podcast w drodze", "06:15", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "10:00", 60, true], ["med", "\u{1F9D8} Medytacja po powrocie (reset)", "15:40", 10], ["trade", "\u{1F4C8} Trading: wykresy i plan", "16:00", 20], ["conf", "", "16:20", 10], ["deep", "\u{1F4BC} Deep work nad biznesem", "16:30", 60], ["learn", "\u{1F3AF} Nauka sprzeda\u017Cy i marketingu", "18:45", 25]],
-  Nocka: [["conf", "", "17:40", 10], ["med", "\u{1F9D8} Medytacja przed drzemk\u0105", "15:15", 10], ["trade", "\u{1F4C8} Trading: szybki przegl\u0105d", "18:00", 20], ["learn", "\u{1F3A7} Audiobook o sprzeda\u017Cy w drodze", "22:25", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "23:30", 60, true]]
+  Wolne: [["conf", "", "08:45", 10], ["deep", "\u{1F4BC} Deep work: SkupOS + telefony do skup\xF3w", "09:00", 120], ["trade", "\u{1F4C8} Trading: wykresy, plan, wej\u015Bcia", "11:15", 30], ["train", "\u{1F3CB}\uFE0F Trening PPL", "12:30", 75], ["learn", "\u{1F3AF} Nauka sprzeda\u017Cy i marketingu", "16:00", 45], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "18:30", 45]],
+  "Popo\u0142udnie": [["conf", "", "08:15", 10], ["deep", "\u{1F4BC} Deep work + telefony do skup\xF3w", "08:30", 90], ["train", "\u{1F3CB}\uFE0F Trening PPL", "10:15", 60], ["trade", "\u{1F4C8} Trading: wykresy i plan", "11:45", 20], ["learn", "\u{1F3A7} Nauka sprzeda\u017Cy: audiobook w aucie", "14:15", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "19:00", 60, true], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "13:15", 30]],
+  Ranka: [["read", "\u{1F3A7} Audiobook / podcast w drodze", "06:15", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "10:00", 60, true], ["med", "\u{1F9D8} Medytacja po powrocie (reset)", "15:40", 10], ["trade", "\u{1F4C8} Trading: wykresy i plan", "16:00", 20], ["conf", "", "16:20", 10], ["deep", "\u{1F4BC} Deep work nad biznesem", "16:30", 60], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "17:45", 40], ["learn", "\u{1F3AF} Nauka sprzeda\u017Cy i marketingu", "18:45", 25]],
+  Nocka: [["walk", "\u{1F6B6} Spacer z Karolin\u0105", "18:30", 40], ["conf", "", "17:40", 10], ["med", "\u{1F9D8} Medytacja przed drzemk\u0105", "15:15", 10], ["trade", "\u{1F4C8} Trading: szybki przegl\u0105d", "18:00", 20], ["learn", "\u{1F3A7} Audiobook o sprzeda\u017Cy w drodze", "22:25", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "23:30", 60, true]]
 };
 const blockStart = (spec, sp) => {
   const m = /^(wake|routine)([+-]\d+)?$/.exec(spec);
@@ -1812,7 +1812,7 @@ function dayItems(events, tasks, k, daily) {
   const shPrev = dayShift(events, addDays(k, -1)), shNext = dayShift(events, addDays(k, 1));
   if (!(bo.prep === "skip")) {
     if (sh === "Wolne" && shNext === "Ranka") out.push({ kind: "block", t0: hm2m(bo.prep && bo.prep.at || "17:00"), t1: hm2m(bo.prep && bo.prep.at || "17:00") + 75, title: "\u{1F373} Meal prep na 3 dni: mi\u0119so/ryba + warzywa do pude\u0142ek (75 min)", bid: "prep" });
-    if (sh === "Popo\u0142udnie" && shPrev === "Ranka") out.push({ kind: "block", t0: hm2m(bo.prep && bo.prep.at || "12:10"), t1: hm2m(bo.prep && bo.prep.at || "12:10") + 60, title: "\u{1F373} Meal prep na 3 dni (60 min)", bid: "prep" });
+    if (sh === "Popo\u0142udnie" && shPrev === "Ranka") out.push({ kind: "block", t0: hm2m(bo.prep && bo.prep.at || "12:05"), t1: hm2m(bo.prep && bo.prep.at || "12:05") + 60, title: "\u{1F373} Meal prep na 3 dni (60 min)", bid: "prep" });
   }
   (BLOCK_PLAN[sh] || []).forEach(([id, title, st, min, par]) => {
     const o = bo[id];
@@ -1914,7 +1914,7 @@ function DayAgendaCard({ events, setEvents, tasks, setTasks, day, setDay, setTab
     const sp2 = sleepPlan(events, tk, null, daily);
     const want = {
       h_wake: sl2.wake != null,
-      h_move: !!(d.workoutDone || b.train),
+      h_move: !!(d.workoutDone || b.train || b.walk),
       h_deep: !!(b.deep || b.learn || calls > 0),
       h_conf: !!b.conf,
       h_review: sl2.eve != null && sp2.routine != null && sl2.eve <= sp2.routine + 15
