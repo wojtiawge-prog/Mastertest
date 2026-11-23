@@ -192,7 +192,7 @@ const SEED_SUPPS = [
     { id: "s_mag", name: "Magnez (glicynian)", dose: "400 mg", when: "Wieczór" },
     { id: "s_ashwa", name: "Ashwagandha KSM-66", dose: "600 mg", when: "Wieczór" },
 ];
-const SYNC_KEYS = ["mp_profile_v1", "mp_habits_v1", "mp_supps_v1", "mp_daily_v4", "mp_tasks_v1", "mp_finance_v1", "mp_events_v1", "mp_diet_v1", "mp_shopping_v1", "mp_saas_v1", "mp_measures_v1", "mp_books_v1", "mp_prs_v1", "mp_review_v1", "mp_medi_v1", "mp_voice_v1", "mp_blood_v1", "mp_charisma_v1", "mp_journal_v1", "mp_bizplan_v1", "mp_trades_v1", "mp_rest_v1", "mp_gate_v1", "mp_fav_v1", "mp_goal_v1", "mp_dgrep_v1"];
+const SYNC_KEYS = ["mp_profile_v1", "mp_habits_v1", "mp_supps_v1", "mp_daily_v4", "mp_tasks_v1", "mp_finance_v1", "mp_events_v1", "mp_diet_v1", "mp_shopping_v1", "mp_saas_v1", "mp_measures_v1", "mp_books_v1", "mp_prs_v1", "mp_review_v1", "mp_medi_v1", "mp_voice_v1", "mp_blood_v1", "mp_charisma_v1", "mp_journal_v1", "mp_bizplan_v1", "mp_trades_v1", "mp_rest_v1", "mp_gate_v1", "mp_fav_v1", "mp_hub_v1", "mp_goal_v1", "mp_dgrep_v1"];
 const sbNormUrl = (u) => {
   u = String(u || "").trim().replace(/^["']|["']$/g, "");
   const dash = /supabase\.com\/dashboard\/project\/([a-z0-9]+)/i.exec(u);
@@ -1356,7 +1356,7 @@ export default function App() {
     useEffect(() => {
         if (!ready)
             return;
-        const map = { mp_profile_v1: setProfile, mp_habits_v1: setHabits, mp_supps_v1: setSupps, mp_daily_v4: setDaily, mp_tasks_v1: setTasks, mp_finance_v1: setFinance, mp_events_v1: setEvents, mp_diet_v1: (v) => setDiet({ ...SEED_DIET, ...v }), mp_shopping_v1: setShopping, mp_saas_v1: setSaasData, mp_measures_v1: setMeasures, mp_books_v1: setBooks, mp_prs_v1: setPrs, mp_review_v1: setWeekFocus, mp_medi_v1: setMedi, mp_voice_v1: setVoiceLog, mp_blood_v1: setBloodLog, mp_charisma_v1: setCharisma, mp_journal_v1: setJournal, mp_bizplan_v1: setBizplan, mp_trades_v1: (v) => setTrades({ ...SEED_TRADES, ...v }), mp_rest_v1: (v) => restStore.replace(v), mp_gate_v1: (v) => gateStore.replace(v), mp_fav_v1: (v) => favStore.replace(v), mp_goal_v1: (v) => goalStore.replace(v), mp_dgrep_v1: (v) => repStore.replace(v) };
+        const map = { mp_profile_v1: setProfile, mp_habits_v1: setHabits, mp_supps_v1: setSupps, mp_daily_v4: setDaily, mp_tasks_v1: setTasks, mp_finance_v1: setFinance, mp_events_v1: setEvents, mp_diet_v1: (v) => setDiet({ ...SEED_DIET, ...v }), mp_shopping_v1: setShopping, mp_saas_v1: setSaasData, mp_measures_v1: setMeasures, mp_books_v1: setBooks, mp_prs_v1: setPrs, mp_review_v1: setWeekFocus, mp_medi_v1: setMedi, mp_voice_v1: setVoiceLog, mp_blood_v1: setBloodLog, mp_charisma_v1: setCharisma, mp_journal_v1: setJournal, mp_bizplan_v1: setBizplan, mp_trades_v1: (v) => setTrades({ ...SEED_TRADES, ...v }), mp_rest_v1: (v) => restStore.replace(v), mp_gate_v1: (v) => gateStore.replace(v), mp_fav_v1: (v) => favStore.replace(v), mp_goal_v1: (v) => goalStore.replace(v), mp_hub_v1: (v) => hubStore.replace(v), mp_dgrep_v1: (v) => repStore.replace(v) };
         sync.onRemote = (k, v) => { if (v != null && map[k]) map[k](v); };
         sync.init();
     }, [ready]);
@@ -4425,8 +4425,58 @@ const favStore = {
   }
 };
 const HUB_NAMES = {};
+const hubStore = {
+  v: { order: [], own: false, ...lsJSON("mp_hub_v1", {}) },
+  subs: /* @__PURE__ */ new Set(),
+  set(p) {
+    this.v = { ...this.v, ...p };
+    save("mp_hub_v1", this.v);
+    this.subs.forEach((f) => f(this.v));
+  },
+  replace(v) {
+    this.v = { order: [], own: false, ...v || {} };
+    this.subs.forEach((f) => f(this.v));
+  }
+};
+function hubOrdered(all, order) {
+  const ids = all.map((i) => i.t);
+  const o = (order || []).filter((t) => ids.includes(t));
+  ids.forEach((t) => {
+    if (!o.includes(t)) o.push(t);
+  });
+  return o.map((t) => all.find((i) => i.t === t));
+}
+function HubOrder({ all, Tile, go }) {
+  const [h, setH] = useState(hubStore.v);
+  const [edit, setEdit] = useState(false);
+  useEffect(() => {
+    hubStore.subs.add(setH);
+    return () => hubStore.subs.delete(setH);
+  }, []);
+  const list = hubOrdered(all, h.order);
+  const mv = (i, to) => {
+    const o = list.map((x) => x.t);
+    const [it] = o.splice(i, 1);
+    o.splice(Math.max(0, Math.min(o.length, to)), 0, it);
+    hubStore.set({ order: o, own: true });
+    buzz(5);
+  };
+  const sb = (on) => ({ flex: 1, padding: "8px 6px", borderRadius: 10, border: "none", fontSize: 12.5, fontWeight: 700, cursor: "pointer", background: on ? "var(--gold)" : "transparent", color: on ? "#1a1200" : "var(--muted)" });
+  const ab = { width: 34, height: 34, borderRadius: 10, border: "1px solid var(--line2)", background: "var(--surface2)", color: "var(--text)", fontSize: 14, cursor: "pointer", flexShrink: 0 };
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", marginTop: 14 } }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, display: "flex", gap: 4, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12, padding: 4 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => hubStore.set({ own: false }), style: sb(!h.own) }, "Sekcje"), /* @__PURE__ */ React.createElement("button", { onClick: () => hubStore.set({ own: true }), style: sb(h.own) }, "Moja kolejno\u015B\u0107")), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+    setEdit(!edit);
+    if (!edit) hubStore.set({ own: true });
+    buzz(5);
+  }, style: { padding: "10px 12px", borderRadius: 12, border: edit ? "1px solid var(--gold)" : "1px solid var(--line2)", background: edit ? "rgba(245,181,61,.14)" : "var(--surface)", color: edit ? "var(--gold2)" : "var(--text)", fontSize: 12.5, fontWeight: 800, cursor: "pointer" } }, edit ? "\u2713 Gotowe" : "\u2195 U\u0142\xF3\u017C")), edit && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginBottom: 8, lineHeight: 1.45 } }, "Najwa\u017Cniejsze na g\xF3r\u0119. \u2912 przenosi od razu na sam\u0105 g\xF3r\u0119."), list.map((i, idx) => /* @__PURE__ */ React.createElement("div", { key: i.t, style: { display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", marginBottom: 6, borderRadius: 13, background: "var(--surface)", border: "1px solid var(--line)" } }, /* @__PURE__ */ React.createElement("span", { style: { width: 20, fontSize: 12, color: "var(--faint)", fontWeight: 800, textAlign: "right" } }, idx + 1), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 18 } }, i.e), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontSize: 13.5, fontWeight: 700, minWidth: 0 } }, i.n), /* @__PURE__ */ React.createElement("button", { onClick: () => mv(idx, 0), disabled: idx === 0, style: { ...ab, opacity: idx === 0 ? 0.3 : 1 }, "aria-label": "Na g\xF3r\u0119" }, "\u2912"), /* @__PURE__ */ React.createElement("button", { onClick: () => mv(idx, idx - 1), disabled: idx === 0, style: { ...ab, opacity: idx === 0 ? 0.3 : 1 }, "aria-label": "W g\xF3r\u0119" }, "\u25B2"), /* @__PURE__ */ React.createElement("button", { onClick: () => mv(idx, idx + 1), disabled: idx === list.length - 1, style: { ...ab, opacity: idx === list.length - 1 ? 0.3 : 1 }, "aria-label": "W d\xF3\u0142" }, "\u25BC"))), /* @__PURE__ */ React.createElement("button", { onClick: () => {
+    hubStore.set({ order: [], own: false });
+    setEdit(false);
+  }, style: { width: "100%", marginTop: 4, background: "none", border: "none", color: "var(--faint)", fontSize: 12, cursor: "pointer", padding: 8 } }, "Przywr\xF3\u0107 domy\u015Blne")), !edit && h.own && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginTop: 14 } }, list.map((i) => /* @__PURE__ */ React.createElement(Tile, { key: i.t, i }))));
+}
+
 function DevHub({ setTab, profile, daily, habits, measures, medi, voiceLog, books, prs, diet }) {
   const [q, setQ] = useState("");
+  const [, setHubTick] = useState(0);
+  useEffect(() => { const f = () => setHubTick((x) => x + 1); hubStore.subs.add(f); return () => hubStore.subs.delete(f); }, []);
   const [fav, setFav] = useState(favStore.v);
   useEffect(() => {
     favStore.subs.add(setFav);
@@ -4497,7 +4547,7 @@ function DevHub({ setTab, profile, daily, habits, measures, medi, voiceLog, book
     }, style: { position: "absolute", top: 6, right: 6, background: "none", border: "none", cursor: "pointer", padding: 4, color: on ? "var(--gold2)" : "var(--faint)", fontSize: 14, lineHeight: 1 } }, on ? "\u2605" : "\u2606"));
   };
   const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 9 };
-  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("header", { style: { paddingTop: 26 } }, /* @__PURE__ */ React.createElement("h1", { style: { margin: 0, fontFamily: "var(--display)", fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" } }, "Rozw\xF3j"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--muted)", fontSize: 13, marginTop: 2 } }, "Przypnij \u2605 to, z czego korzystasz najcz\u0119\u015Bciej")), /* @__PURE__ */ React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u{1F50D}  Szukaj: np. medytacja, biznes, sen\u2026", style: { ...inputStyle, width: "100%", marginTop: 16 } }), !nq && /* @__PURE__ */ React.createElement("button", { onClick: () => go("ai"), style: { width: "100%", marginTop: 12, background: "linear-gradient(135deg, rgba(245,181,61,.16), rgba(91,140,255,.13))", border: "1px solid var(--line2)", borderRadius: 18, padding: 15, textAlign: "left", cursor: "pointer", color: "var(--text)", display: "flex", alignItems: "center", gap: 13 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 28 } }, "\u{1F9E0}"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 700, fontSize: 16 } }, "Druga G\u0142owa"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 1 } }, "Zna Twoje dane: diet\u0119, trening, trading, finanse")), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--faint)", fontSize: 18 } }, "\u2192")), !nq && favItems.length > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: sectionTitle }, "\u2605 Przypi\u0119te"), /* @__PURE__ */ React.createElement("div", { style: grid }, favItems.map((i) => /* @__PURE__ */ React.createElement(Tile, { key: i.t, i })))), SECTIONS.map((s) => {
+  return /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("header", { style: { paddingTop: 26 } }, /* @__PURE__ */ React.createElement("h1", { style: { margin: 0, fontFamily: "var(--display)", fontSize: 28, fontWeight: 800, letterSpacing: "-.03em" } }, "Rozw\xF3j"), /* @__PURE__ */ React.createElement("div", { style: { color: "var(--muted)", fontSize: 13, marginTop: 2 } }, "Przypnij \u2605 to, z czego korzystasz najcz\u0119\u015Bciej")), /* @__PURE__ */ React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u{1F50D}  Szukaj: np. medytacja, biznes, sen\u2026", style: { ...inputStyle, width: "100%", marginTop: 16 } }), !nq && /* @__PURE__ */ React.createElement("button", { onClick: () => go("ai"), style: { width: "100%", marginTop: 12, background: "linear-gradient(135deg, rgba(245,181,61,.16), rgba(91,140,255,.13))", border: "1px solid var(--line2)", borderRadius: 18, padding: 15, textAlign: "left", cursor: "pointer", color: "var(--text)", display: "flex", alignItems: "center", gap: 13 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 28 } }, "\u{1F9E0}"), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 700, fontSize: 16 } }, "Druga G\u0142owa"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 1 } }, "Zna Twoje dane: diet\u0119, trening, trading, finanse")), /* @__PURE__ */ React.createElement("span", { style: { color: "var(--faint)", fontSize: 18 } }, "\u2192")), !nq && !hubStore.v.own && favItems.length > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: sectionTitle }, "\u2605 Przypi\u0119te"), /* @__PURE__ */ React.createElement("div", { style: grid }, favItems.map((i) => /* @__PURE__ */ React.createElement(Tile, { key: i.t, i })))), !nq && React.createElement(HubOrder, { all, Tile, go }), (!nq && hubStore.v.own ? [] : SECTIONS).map((s) => {
     const items = s.items.filter(match);
     if (!items.length) return null;
     return /* @__PURE__ */ React.createElement("div", { key: s.title }, /* @__PURE__ */ React.createElement("div", { style: sectionTitle }, s.title), /* @__PURE__ */ React.createElement("div", { style: grid }, items.map((i) => /* @__PURE__ */ React.createElement(Tile, { key: i.t, i }))));
