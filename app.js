@@ -1671,7 +1671,7 @@ const m2hm = (m) => {
 };
 const dayShift = (events, k) => shiftOfDate(events, k);
 const SHIFT_WIN = { Ranka: [375, 930], "Popo\u0142udnie": [855, 1410], Nocka: [1345, 1440] };
-const ROUT_M = [{ id: "m1", t: "\u{1F4A7} Woda + \u015Bwiat\u0142o dzienne", m: 2 }, { id: "m2", t: "\u{1F9B7} Z\u0119by, twarz, ubranie", m: 5 }, { id: "m3", t: "\u{1F9CD} Postawa, mewing, szyja", m: 3 }, { id: "m4", t: "\u{1F399}\uFE0F G\u0142os: oddech przepon\u0105 + 2 min czytania na g\u0142os", m: 5 }, { id: "m5", t: "\u{1F48A} Suple", m: 1 }, { id: "m6", t: "\u{1F9D8} Medytacja", m: 10 }, { id: "m7", t: "\u{1F4CB} Rzut oka na plan dnia", m: 2 }];
+const ROUT_M = [{ id: "m1", t: "\u{1F4A7} Woda + \u015Bwiat\u0142o dzienne", m: 2 }, { id: "m2", t: "\u{1F9B7} Z\u0119by, twarz, ubranie", m: 5 }, { id: "m3", t: "\u{1F9CD} Postawa, mewing, szyja", m: 3 }, { id: "m4", t: "\u{1F399}\uFE0F G\u0142os: oddech przepon\u0105 + 2 min czytania na g\u0142os", m: 5 }, { id: "m5", t: "\u{1F48A} Suple", m: 1 }, { id: "m6", t: "\u{1F9D8} Medytacja", m: 10 }, { id: "m7", t: "\u{1F4CB} Rzut oka na plan dnia", m: 2 }, { id: "m8", t: "\u{1F6BF} 30 s zimnej wody na koniec mycia", m: 1 }];
 const ROUT_E = [{ id: "e1", t: "\u{1F4F5} Ekran od\u0142o\u017Cony, \u015Bwiat\u0142o przygaszone", m: 1 }, { id: "e2", t: "\u{1F6BF} Prysznic", m: 10 }, { id: "e3", t: "\u{1F9B7} Z\u0119by + skincare", m: 5 }, { id: "e4", t: "\u{1F392} Rzeczy na jutro gotowe", m: 2 }, { id: "e5", t: "\u{1F4DD} Dziennik: 3 zdania + 1 moment, w kt\xF3rym by\u0142em pewny siebie", m: 3 }, { id: "e6", t: "\u{1F4DA} Ksi\u0105\u017Cka (papier)", m: 20 }, { id: "e7", t: "\u{1F9D8} Oddech 4-7-8, \u015Bwiat\u0142o off", m: 3 }];
 const sleepBuf = () => {
   const p = lsJSON("mp_profile_v1", {}) || {};
@@ -1886,6 +1886,25 @@ function DayAgendaCard({ events, setEvents, tasks, setTasks, day, setDay, setTab
   const hNow = (/* @__PURE__ */ new Date()).getHours();
   const tSl = ((daily || {})[todayKey()] || {}).sl || {};
   const eSl = ((daily || {})[ek] || {}).sl || {};
+  useEffect(() => {
+    if (!setDayFor || !daily) return;
+    const tk = todayKey();
+    const d = daily[tk] || {};
+    const h = d.habits || {};
+    const b = (d.rt || {}).b || {};
+    const sl2 = d.sl || {};
+    const calls = (goalStore && goalStore.v.calls || {})[tk] || 0;
+    const sp2 = sleepPlan(events, tk, null, daily);
+    const want = {
+      h_wake: sl2.wake != null,
+      h_move: !!(d.workoutDone || b.train),
+      h_deep: !!(b.deep || b.learn || calls > 0),
+      h_conf: !!b.conf,
+      h_review: sl2.eve != null && sp2.routine != null && sl2.eve <= sp2.routine + 15
+    };
+    const add = Object.keys(want).filter((x) => want[x] && !h[x]);
+    if (add.length) setDayFor(tk, (c) => ({ ...c, habits: { ...c.habits || {}, ...Object.fromEntries(add.map((x) => [x, true])) } }));
+  }, [daily, events]);
   const nowM = (/* @__PURE__ */ new Date()).getHours() * 60 + (/* @__PURE__ */ new Date()).getMinutes();
   const loose = (tasks && tasks.items || []).filter((t) => t.list === "l_inbox" && !t.at && (t.date === k || !t.date && isToday));
   const allT = (tasks && tasks.items || []).filter((t) => t.list === "l_inbox" && (t.date === k || !t.date && isToday));
