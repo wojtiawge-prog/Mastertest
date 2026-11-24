@@ -1001,6 +1001,12 @@ const bestEverE1RM = (daily, exId) => {
         best = Math.max(best, E1RM(b.w, b.reps)); });
     return best;
 };
+/* wspólny stan serii: day.sets (pasek) i day.setlog (kg×powt) muszą się zgadzać */
+const withLogDone = (c, exId, idx, val) => {
+    const sl = c.setlog && c.setlog[exId];
+    if (!sl || !sl[idx]) return c.setlog;
+    return { ...c.setlog, [exId]: sl.map((r, j) => (j === idx ? { ...r, done: !!val } : r)) };
+};
 /* ——— logger serii per ćwiczenie (kg × powt × RPE) — styl Hevy/Strong ——— */
 function SetLogger({ ex, day, setDay, daily, startTimer }) {
     const [open, setOpen] = useState(false);
@@ -1010,13 +1016,18 @@ function SetLogger({ ex, day, setDay, daily, startTimer }) {
     const lastSession = hist.length ? hist[hist.length - 1] : null;
     const lastBest = lastSession ? bestOfLog(lastSession.log) : null;
     const prE1RM = useMemo(() => bestEverE1RM(daily, ex.id), [daily, ex.id]);
-    const ensureRows = () => {
-        if (log.length)
-            return log;
-        const w0 = (lastBest && lastBest.w) || (day.lifts && day.lifts[ex.id] && day.lifts[ex.id].w) || 0;
-        return Array.from({ length: ex.s }, () => ({ w: w0, reps: "", rpe: 8, done: false }));
+    // wiersze liczone z AKTUALNEGO stanu dnia (nie z renderu), a odhaczenia z paska przenoszone do wierszy
+    const rowsOf = (c) => {
+        const cur = (c.setlog && c.setlog[ex.id]) || [];
+        if (cur.length)
+            return cur;
+        const bar = (c.sets && c.sets[ex.id]) || [];
+        const w0 = (lastBest && lastBest.w) || (c.lifts && c.lifts[ex.id] && c.lifts[ex.id].w) || 0;
+        return Array.from({ length: ex.s }, (_, i) => ({ w: w0, reps: "", rpe: 8, done: !!bar[i] }));
     };
-    const writeLog = (rows) => setDay((c) => {
+    const ensureRows = () => rowsOf(day);
+    const writeLog = (fn) => setDay((c) => {
+        const rows = fn(rowsOf(c));
         const sl = { ...(c.setlog || {}) };
         sl[ex.id] = rows;
         // sync z paskiem % (boolean sets)
@@ -1027,14 +1038,13 @@ function SetLogger({ ex, day, setDay, daily, startTimer }) {
         cs[ex.id] = bar;
         return { ...c, setlog: sl, sets: cs, workoutId: c.workoutId };
     });
-    const upd = (i, patch) => { const rows = ensureRows().map((r, j) => (j === i ? { ...r, ...patch } : r)); writeLog(rows); };
-    const addRow = () => { const rows = ensureRows(); const last = rows[rows.length - 1] || { w: 0, rpe: 8 }; writeLog([...rows, { w: last.w, reps: "", rpe: last.rpe, done: false }]); };
-    const delRow = (i) => writeLog(ensureRows().filter((_, j) => j !== i));
+    const upd = (i, patch) => writeLog((rows) => rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+    const addRow = () => writeLog((rows) => { const last = rows[rows.length - 1] || { w: 0, rpe: 8 }; return [...rows, { w: last.w, reps: "", rpe: last.rpe, done: false }]; });
+    const delRow = (i) => writeLog((rows) => rows.filter((_, j) => j !== i));
     const toggleDone = (i) => {
         const rows = ensureRows();
-        const wasDone = rows[i].done;
-        const nr = rows.map((r, j) => (j === i ? { ...r, done: !r.done } : r));
-        writeLog(nr);
+        const wasDone = !!(rows[i] && rows[i].done);
+        writeLog((cur) => cur.map((r, j) => (j === i ? { ...r, done: !wasDone } : r)));
         buzz(wasDone ? 4 : 12);
         if (!wasDone && restOf(ex) > 0)
             startTimer(restOf(ex), ex.n);
@@ -2674,7 +2684,7 @@ function LiveWorkout({ workout, day, setDay, selId, startTimer, timer, setTimer,
         const next = arr.findIndex((x) => !x);
         if (next === -1)
             return;
-        setDay((c) => { const cs = { ...(c.sets || {}) }; const a = [...(cs[ex.id] || Array(ex.s).fill(false))]; a[next] = true; cs[ex.id] = a; return { ...c, sets: cs, workoutId: selId }; });
+        setDay((c) => { const cs = { ...(c.sets || {}) }; const a = [...(cs[ex.id] || Array(ex.s).fill(false))]; a[next] = true; cs[ex.id] = a; return { ...c, sets: cs, setlog: withLogDone(c, ex.id, next, true), workoutId: selId }; });
         buzz(12);
         if (restOf(ex) > 0)
             startTimer(restOf(ex), ex.n);
@@ -2682,7 +2692,7 @@ function LiveWorkout({ workout, day, setDay, selId, startTimer, timer, setTimer,
             setTimeout(() => setExIdx((i) => Math.min(allEx - 1, i + 1)), 1000);
     };
     const undoSet = () => { const last = arr.lastIndexOf(true); if (last === -1)
-        return; setDay((c) => { const cs = { ...(c.sets || {}) }; const a = [...(cs[ex.id] || [])]; a[last] = false; cs[ex.id] = a; return { ...c, sets: cs }; }); buzz(4); };
+        return; setDay((c) => { const cs = { ...(c.sets || {}) }; const a = [...(cs[ex.id] || [])]; a[last] = false; cs[ex.id] = a; return { ...c, sets: cs, setlog: withLogDone(c, ex.id, last, false) }; }); buzz(4); };
     const go = (d) => { setExIdx((i) => Math.max(0, Math.min(allEx - 1, i + d))); setTimer((t) => ({ ...t, running: false })); };
     const finish = () => { finishWorkout(); onClose(); };
     const resting = timer.running && timer.left > 0;
@@ -2758,7 +2768,7 @@ function Train({ day, setDay, daily, timer, setTimer, startTimer, prs, setPrs })
             const arr = [...(cs[ex.id] || Array(ex.s).fill(false))];
             arr[idx] = !arr[idx];
             cs[ex.id] = arr;
-            return { ...c, sets: cs, workoutId: selId };
+            return { ...c, sets: cs, setlog: withLogDone(c, ex.id, idx, arr[idx]), workoutId: selId };
         });
         // start rest timer when a set is completed
         const arr = sets[ex.id] || [];
