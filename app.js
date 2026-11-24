@@ -1768,7 +1768,7 @@ const evKeyNow = () => {
   return keyOf(d);
 };
 // ── Nienegocjowalne pory snu (wg zmiany dziś i jutro). Wpis „planBed” ich nie przesuwa — dzień się skraca, nie noc.
-const HARD_SLEEP_DEF = { on: true, Ranka: { wake: "05:30" }, "Popo\u0142udnie": { wake: "09:00", bed: "00:30" }, Wolne: { wake: "07:30", bed: "23:00" }, przedRanka: { bed: "21:30" }, poNocce: { wake: "13:00" } };
+const HARD_SLEEP_DEF = { on: true, Ranka: { wake: "05:30" }, "Popo\u0142udnie": { wake: "04:30", wake2: "08:00", bed: "00:30" }, Wolne: { wake: "07:30", bed: "23:00" }, przedRanka: { bed: "21:30" }, poNocce: { wake: "13:00" } };
 const hardSleepCfg = () => { const p = lsJSON("mp_profile_v1", {}) || {}; const h = p.hardSleep || {}; const out = {}; Object.keys(HARD_SLEEP_DEF).forEach((k) => { out[k] = typeof HARD_SLEEP_DEF[k] === "object" ? { ...HARD_SLEEP_DEF[k], ...(h[k] || {}) } : (h[k] !== undefined ? h[k] : HARD_SLEEP_DEF[k]); }); return out; };
 const bedMin = (hm) => { const m = hm2m(hm); return m == null ? null : m < 720 ? m + 1440 : m; };
 function sleepPlan(events, k, alarms, daily) {
@@ -1780,6 +1780,8 @@ function sleepPlan(events, k, alarms, daily) {
   const hardOn = H.on !== false;
   const wakeOf = (s) => (hardOn && s !== "Nocka" && H[s] && hm2m(H[s].wake) != null ? hm2m(H[s].wake) : null) ?? hm2m((A[s] || {}).wake) ?? (s === "Ranka" ? 300 : s === "Popo\u0142udnie" ? 450 : 480);
   let wake = wakeOf(s0), bed = null, note = "", nap = null, dayNap = null;
+  // 2. dzień popołudniówki: wróciłeś ~23:30, więc nie 4:30, tylko późniejsza pobudka
+  if (hardOn && s0 === "Popo\u0142udnie" && sp === "Popo\u0142udnie" && hm2m(H["Popo\u0142udnie"].wake2) != null) wake = hm2m(H["Popo\u0142udnie"].wake2);
   if (sp === "Nocka" && s0 !== "Nocka") {
     wake = hardOn && hm2m(H.poNocce.wake) != null ? hm2m(H.poNocce.wake) : 780;
     dayNap = [480, 780];
@@ -1802,7 +1804,7 @@ function sleepPlan(events, k, alarms, daily) {
   if (hardOn && s0 !== "Nocka") {
     if (s0 === "Popo\u0142udnie" && s1 === "Nocka") bed = 1500;
     else if (s0 === "Popo\u0142udnie") bed = bedMin(H["Popo\u0142udnie"].bed) ?? bed;
-    else if (s1 === "Ranka") bed = bedMin(H.przedRanka.bed) ?? bed;
+    else if (s1 === "Ranka" || s1 === "Popo\u0142udnie") bed = bedMin(H.przedRanka.bed) ?? bed; // przed ranką i przed 1. popołudniówką (pobudka 4:30)
     else if (s1 === "Nocka") bed = bedMin(H["Popo\u0142udnie"].bed) ?? bed;
     else bed = bedMin(H.Wolne.bed) ?? bed;
   }
@@ -1868,6 +1870,7 @@ const confOf = (k) => {
 const BLOCK_PLAN = {
   Wolne: [["conf", "", "08:45", 10], ["deep", "\u{1F4BC} Deep work: SkupOS + telefony do skup\xF3w", "09:00", 120], ["trade", "\u{1F4C8} Trading: wykresy, plan, wej\u015Bcia", "11:15", 30], ["train", "\u{1F3CB}\uFE0F Trening PPL", "12:30", 75], ["learn", "\u{1F3AF} Nauka sprzeda\u017Cy i marketingu", "16:00", 45], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "18:30", 45]],
   "Popo\u0142udnie": [["conf", "", "08:15", 10], ["deep", "\u{1F4BC} Deep work + telefony do skup\xF3w", "08:30", 90], ["train", "\u{1F3CB}\uFE0F Trening PPL", "10:15", 60], ["trade", "\u{1F4C8} Trading: wykresy i plan", "11:45", 20], ["learn", "\u{1F3A7} Nauka sprzeda\u017Cy: audiobook w aucie", "14:15", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "19:00", 60, true], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "13:15", 30]],
+  "Popo\u0142udnie1": [["conf", "", "05:00", 10], ["deep", "\u{1F4BC} Deep work SkupOS (najświeższa głowa)", "05:15", 120], ["trade", "\u{1F4C8} Trading: plan + otwarcie Londynu", "08:45", 60], ["call", "\u{1F4DE} Telefony do skupów (skupy otwarte)", "10:00", 60], ["train", "\u{1F3CB}\uFE0F Trening PPL", "11:15", 60], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "12:45", 30], ["nap", "\u{1F634} Drzemka max 20 min", "13:25", 20], ["learn", "\u{1F3A7} Nauka sprzeda\u017Cy: audiobook w aucie", "14:15", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "19:00", 60, true]],
   Ranka: [["read", "\u{1F3A7} Audiobook / podcast w drodze", "06:15", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "10:00", 60, true], ["med", "\u{1F9D8} Medytacja po powrocie (reset)", "15:40", 10], ["trade", "\u{1F4C8} Trading: wykresy i plan", "16:00", 20], ["conf", "", "16:20", 10], ["deep", "\u{1F4BC} Deep work nad biznesem", "16:30", 60], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "17:45", 40], ["learn", "\u{1F3AF} Nauka sprzeda\u017Cy i marketingu", "18:45", 25]],
   Nocka: [["walk", "\u{1F6B6} Spacer z Karolin\u0105", "18:30", 40], ["conf", "", "17:40", 10], ["med", "\u{1F9D8} Medytacja przed drzemk\u0105", "15:15", 10], ["trade", "\u{1F4C8} Trading: szybki przegl\u0105d", "18:00", 20], ["learn", "\u{1F3A7} Audiobook o sprzeda\u017Cy w drodze", "22:25", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "23:30", 60, true]]
 };
@@ -1911,7 +1914,8 @@ function dayItems(events, tasks, k, daily) {
     if (sh === "Wolne" && shNext === "Ranka") out.push({ kind: "block", t0: hm2m(bo.prep && bo.prep.at || "17:00"), t1: hm2m(bo.prep && bo.prep.at || "17:00") + 75, title: "\u{1F373} Meal prep na 3 dni: mi\u0119so/ryba + warzywa do pude\u0142ek (75 min)", bid: "prep" });
     if (sh === "Popo\u0142udnie" && shPrev === "Ranka") out.push({ kind: "block", t0: hm2m(bo.prep && bo.prep.at || "12:05"), t1: hm2m(bo.prep && bo.prep.at || "12:05") + 60, title: "\u{1F373} Meal prep na 3 dni (60 min)", bid: "prep" });
   }
-  (BLOCK_PLAN[sh] || []).forEach(([id, title, st, min, par]) => {
+  const planKey = sh === "Popo\u0142udnie" && shPrev !== "Popo\u0142udnie" && BLOCK_PLAN["Popo\u0142udnie1"] ? "Popo\u0142udnie1" : sh;
+  (BLOCK_PLAN[planKey] || []).forEach(([id, title, st, min, par]) => {
     const o = bo[id];
     if (o === "skip" || o && o.skip) return;
     if (id === "conf") {
@@ -2127,8 +2131,9 @@ function HardSleepCard({ profile, setProfile, events, daily, compact }) {
       React.createElement("button", { onClick: () => setEdit((x) => !x), style: { ...iconBtn, width: "auto", padding: "0 10px", fontSize: 12.5, fontWeight: 700 } }, edit ? "Gotowe" : "Ustaw")),
     edit ? React.createElement("div", { style: { marginTop: 6 } },
       row("\u{1F305} Ranka — wstajesz", "Ranka", "wake"),
-      row("\u{1F6CF}️ Przed ranką — śpisz", "przedRanka", "bed"),
-      row("\u{1F307} Popołudnie — wstajesz", "Popołudnie", "wake"),
+      row("\u{1F6CF}️ Przed ranką i 1. popołudniówką — śpisz", "przedRanka", "bed"),
+      row("\u{1F307} 1. popołudniówka — wstajesz", "Popołudnie", "wake"),
+      row("\u{1F307} 2. popołudniówka — wstajesz", "Popołudnie", "wake2"),
       row("\u{1F307} Po popołudniu / przed nocką — śpisz", "Popołudnie", "bed"),
       row("\u{1F319} Po nocce — wstajesz", "poNocce", "wake"),
       row("\u{1F512} Wolne — wstajesz", "Wolne", "wake"),
