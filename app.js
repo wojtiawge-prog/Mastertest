@@ -1640,7 +1640,7 @@ export default function App() {
                 tab === "aitools" && React.createElement(AITools, null),
                 tab === "shifts" && React.createElement(WeeklyShiftPlan, { events: events }),
                 tab === "health" && React.createElement(HealthTracker, { day: day, setDay: setDay, daily: daily, profile: profile, setProfile: setProfile, events: events, setEvents: setEvents, measures: measures, setMeasures: setMeasures, photos: photos, setPhotos: setPhotos, bloodLog: bloodLog, setBloodLog: setBloodLog, setToast: setToast }),
-                tab === "alarms" && React.createElement(AlarmCenter, { alarmCfg: alarmCfg, defaultAlarms: defaultAlarms, saveAlarms: saveAlarms, notifPerm: typeof Notification !== "undefined" ? Notification.permission : "denied", askNotif: askNotif, events: events, setToast: setToast, fireAlarm: fireAlarm }),
+                tab === "alarms" && React.createElement(AlarmCenter, { profile, setProfile, alarmCfg: alarmCfg, defaultAlarms: defaultAlarms, saveAlarms: saveAlarms, notifPerm: typeof Notification !== "undefined" ? Notification.permission : "denied", askNotif: askNotif, events: events, setToast: setToast, fireAlarm: fireAlarm }),
                 tab === "devpath" && React.createElement(DevPath, { setTab: setTab }),
                 tab === "review" && React.createElement(WeeklyReview, { daily, habits, measures, finance, weekFocus, setWeekFocus, profile }),
                 tab === "medytacja" && React.createElement(Meditation, { medi: medi, setMedi: setMedi }),
@@ -1767,15 +1767,21 @@ const evKeyNow = () => {
   if (d.getHours() < 5) d.setDate(d.getDate() - 1);
   return keyOf(d);
 };
+// ── Nienegocjowalne pory snu (wg zmiany dziś i jutro). Wpis „planBed” ich nie przesuwa — dzień się skraca, nie noc.
+const HARD_SLEEP_DEF = { on: true, Ranka: { wake: "05:30" }, "Popo\u0142udnie": { wake: "09:00", bed: "00:30" }, Wolne: { wake: "07:30", bed: "23:00" }, przedRanka: { bed: "21:30" }, poNocce: { wake: "13:00" } };
+const hardSleepCfg = () => { const p = lsJSON("mp_profile_v1", {}) || {}; const h = p.hardSleep || {}; const out = {}; Object.keys(HARD_SLEEP_DEF).forEach((k) => { out[k] = typeof HARD_SLEEP_DEF[k] === "object" ? { ...HARD_SLEEP_DEF[k], ...(h[k] || {}) } : (h[k] !== undefined ? h[k] : HARD_SLEEP_DEF[k]); }); return out; };
+const bedMin = (hm) => { const m = hm2m(hm); return m == null ? null : m < 720 ? m + 1440 : m; };
 function sleepPlan(events, k, alarms, daily) {
   const D = daily || lsJSON("mp_daily_v4", {});
   const sl = (D[k] || {}).sl || {};
   const A = alarms || lsJSON("mp_alarms_v1", null) || HOME_DEF_ALARMS;
   const s0 = dayShift(events, k), s1 = dayShift(events, addDays(k, 1)), sp = dayShift(events, addDays(k, -1));
-  const wakeOf = (s) => hm2m((A[s] || {}).wake) ?? (s === "Ranka" ? 300 : s === "Popo\u0142udnie" ? 450 : 480);
+  const H = hardSleepCfg();
+  const hardOn = H.on !== false;
+  const wakeOf = (s) => (hardOn && s !== "Nocka" && H[s] && hm2m(H[s].wake) != null ? hm2m(H[s].wake) : null) ?? hm2m((A[s] || {}).wake) ?? (s === "Ranka" ? 300 : s === "Popo\u0142udnie" ? 450 : 480);
   let wake = wakeOf(s0), bed = null, note = "", nap = null, dayNap = null;
   if (sp === "Nocka" && s0 !== "Nocka") {
-    wake = 780;
+    wake = hardOn && hm2m(H.poNocce.wake) != null ? hm2m(H.poNocce.wake) : 780;
     dayNap = [480, 780];
     note = "Po nocce: kr\xF3tki sen do 13:00, wieczorem normalnie \u2014 reset rytmu";
   }
@@ -1793,14 +1799,21 @@ function sleepPlan(events, k, alarms, daily) {
   else if (s1 === "Nocka") bed = 1470;
   else bed = 1380;
   if (s0 === "Popo\u0142udnie" && s1 === "Nocka") bed = 1500;
-  if (sl.planBed != null && s0 !== "Nocka") bed = +sl.planBed;
+  if (hardOn && s0 !== "Nocka") {
+    if (s0 === "Popo\u0142udnie" && s1 === "Nocka") bed = 1500;
+    else if (s0 === "Popo\u0142udnie") bed = bedMin(H["Popo\u0142udnie"].bed) ?? bed;
+    else if (s1 === "Ranka") bed = bedMin(H.przedRanka.bed) ?? bed;
+    else if (s1 === "Nocka") bed = bedMin(H["Popo\u0142udnie"].bed) ?? bed;
+    else bed = bedMin(H.Wolne.bed) ?? bed;
+  }
+  if (!hardOn && sl.planBed != null && s0 !== "Nocka") bed = +sl.planBed;
   const prevSl = (D[addDays(k, -1)] || {}).sl || {};
   const firstEv = (events || []).filter((e) => e.date === k && e.time && !/Ranka|Popołudnie|Nocka/.test(e.title || "")).map((e) => hm2m(e.time)).sort((a, b) => a - b)[0];
-  if (prevSl.bed != null && prevSl.bed < 720) {
+  if (!hardOn && prevSl.bed != null && prevSl.bed < 720) {
     const end = prevSl.bed + 450;
     if (wake < end) wake = end;
   }
-  if (firstEv != null && wake > firstEv - 45 && firstEv - 45 > 240) wake = firstEv - 45;
+  if (!hardOn && firstEv != null && wake > firstEv - 45 && firstEv - 45 > 240) wake = firstEv - 45;
   const plannedWake = wake;
   if (sl.wake != null) wake = sl.wake;
   const buf = sleepBuf();
@@ -1814,7 +1827,7 @@ function sleepPlan(events, k, alarms, daily) {
   const prev = (D[addDays(k, -1)] || {}).sl || {};
   const slept = prev.bed != null && sl.wake != null ? (sl.wake + 1440 - prev.bed) % 1440 / 60 : null;
   const hours = bed != null ? (wakeOf(s1 === "Nocka" ? "Wolne" : s1) + (s1 === "Nocka" ? 120 : 0) + 1440 - bed) % 1440 / 60 : null;
-  return { buf, s0, s1, sp, wake, plannedWake, bed, routine, lastMeal, firstMeal, nap, dayNap, note, hours, sl, mShort, mMin, slept };
+  return { buf, s0, s1, sp, wake, plannedWake, bed, routine, lastMeal, firstMeal, nap, dayNap, note, hours, sl, mShort, mMin, slept, hard: hardOn };
 }
 const CONF_CH = [
   ["Nagraj 60 s o swoim dniu, ods\u0142uchaj \u2014 m\xF3w wolniej o 20%", 5],
@@ -1875,9 +1888,9 @@ function dayItems(events, tasks, k, daily) {
   const sp = sleepPlan(events, k, null, daily);
   if (sp.dayNap) out.push({ kind: "sleep", t0: sp.dayNap[0], t1: sp.dayNap[1], title: "\u{1F634} Sen po nocce", hard: false });
   if (sp.nap) out.push({ kind: "sleep", t0: sp.nap[0], t1: sp.nap[1], title: "\u{1F634} Drzemka przed nock\u0105", hard: false });
-  out.push({ kind: "rout", t0: sp.wake, t1: sp.wake + sp.mMin, title: `\u2600\uFE0F Po wstaniu${sp.mShort ? " (szybki start)" : ""} \xB7 ${sp.mMin} min`, r: "m" });
+  out.push({ kind: "rout", t0: sp.plannedWake, t1: sp.plannedWake + sp.mMin, title: `${sp.hard ? "\u{1F512} Wstajesz \u00B7 " : ""}\u2600\uFE0F Po wstaniu${sp.mShort ? " (szybki start)" : ""} \xB7 ${sp.mMin} min`, r: "m" });
   if (sp.routine != null) out.push({ kind: "rout", t0: sp.routine, t1: sp.routine + ROUT_E_MIN, title: `\u{1F319} Przed snem \xB7 ${ROUT_E_MIN + sp.buf} min (ksi\u0105\u017Cka, prysznic, z\u0119by${sp.buf ? `, +${sp.buf} min na za\u015Bni\u0119cie` : ""})`, r: "e" });
-  if (sp.bed != null) out.push({ kind: "bed", t0: sp.bed, t1: sp.bed, title: "\u{1F6CF}\uFE0F Sen" });
+  if (sp.bed != null) out.push({ kind: "bed", t0: sp.bed, t1: sp.bed, title: sp.hard ? "\u{1F512} Sen \u2014 nienegocjowalne" : "\u{1F6CF}\uFE0F Sen" });
   {
     const P1 = Math.max(sp.firstMeal, 0);
     let mt;
@@ -2094,6 +2107,39 @@ function ReminderHost({ events, setToast }) {
   return null;
 }
 
+function HardSleepCard({ profile, setProfile, events, daily, compact }) {
+  const [edit, setEdit] = useState(false);
+  const H = { ...HARD_SLEEP_DEF, ...(profile.hardSleep || {}) };
+  Object.keys(HARD_SLEEP_DEF).forEach((k) => { if (typeof HARD_SLEEP_DEF[k] === "object") H[k] = { ...HARD_SLEEP_DEF[k], ...((profile.hardSleep || {})[k] || {}) }; });
+  const setH = (k, f, v) => setProfile((p) => ({ ...p, hardSleep: { ...(p.hardSleep || {}), [k]: { ...(((p.hardSleep || {})[k]) || HARD_SLEEP_DEF[k]), [f]: v } } }));
+  const ICON = { Ranka: "\u{1F305}", "Popołudnie": "\u{1F307}", Nocka: "\u{1F319}", Wolne: "\u{1F512}" };
+  const days = [];
+  for (let i = 0; i < (compact ? 3 : 7); i++) { const k = addDays(todayKey(), i); const sp = sleepPlan(events || [], k, null, daily); days.push({ k, sp }); }
+  const DN = ["nd", "pn", "wt", "śr", "cz", "pt", "sb"];
+  const row = (lbl, k, f) => React.createElement("div", { key: k + f, style: { display: "flex", alignItems: "center", gap: 8, marginTop: 7 } },
+    React.createElement("div", { style: { flex: 1, fontSize: 13.5 } }, lbl),
+    React.createElement("input", { type: "time", value: H[k][f] || "", onChange: (e) => setH(k, f, e.target.value), style: { ...inputStyle, width: 110, padding: "7px 9px", fontSize: 14 } }));
+  return React.createElement(Card, { style: { marginTop: 14, border: "1px solid rgba(245,181,61,.35)" }, pad: 14 },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+      React.createElement("div", { style: { flex: 1 } },
+        React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 700, fontSize: 15 } }, "\u{1F512} Nienegocjowalne pory snu"),
+        React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 2 } }, "Wg Twoich zmian. Gdy dzień się przesuwa, skraca się dzień — nie noc.")),
+      React.createElement("button", { onClick: () => setEdit((x) => !x), style: { ...iconBtn, width: "auto", padding: "0 10px", fontSize: 12.5, fontWeight: 700 } }, edit ? "Gotowe" : "Ustaw")),
+    edit ? React.createElement("div", { style: { marginTop: 6 } },
+      row("\u{1F305} Ranka — wstajesz", "Ranka", "wake"),
+      row("\u{1F6CF}️ Przed ranką — śpisz", "przedRanka", "bed"),
+      row("\u{1F307} Popołudnie — wstajesz", "Popołudnie", "wake"),
+      row("\u{1F307} Po popołudniu / przed nocką — śpisz", "Popołudnie", "bed"),
+      row("\u{1F319} Po nocce — wstajesz", "poNocce", "wake"),
+      row("\u{1F512} Wolne — wstajesz", "Wolne", "wake"),
+      row("\u{1F512} Wolne — śpisz", "Wolne", "bed"),
+      React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)", marginTop: 8, lineHeight: 1.45 } }, "Nocka: sen 8:00–14:30 i drzemka 15:30–17:30 — bez zmian."))
+    : React.createElement("div", { style: { marginTop: 10 } }, days.map(({ k, sp }, i) => React.createElement("div", { key: k, style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderTop: i ? "1px solid var(--line)" : "none", fontSize: 13.5 } },
+      React.createElement("div", { style: { width: 70, fontWeight: i === 0 ? 800 : 600, color: i === 0 ? "var(--text)" : "var(--muted)" } }, i === 0 ? "Dziś" : i === 1 ? "Jutro" : DN[new Date(k + "T12:00:00").getDay()] + " " + k.slice(8, 10) + "." + k.slice(5, 7)),
+      React.createElement("div", { style: { flex: 1 } }, ICON[sp.s0] || "", " ", sp.s0),
+      React.createElement("div", { style: { fontFamily: "var(--mono)", fontWeight: 800, color: "var(--green2)" } }, "↑ " + (sp.s0 === "Nocka" && sp.sp !== "Nocka" ? m2hm(sp.plannedWake) : m2hm(sp.plannedWake))),
+      React.createElement("div", { style: { fontFamily: "var(--mono)", fontWeight: 800, color: "var(--gold2)", width: 72, textAlign: "right" } }, sp.bed != null ? "↓ " + m2hm(sp.bed) : "↓ nocka")))));
+}
 function Home({ profile, setProfile, habits, supps, day, daily, setDayFor, tasks, setTasks, events, setEvents, finance, setFinance, setToast, diet, toggleHabit, setTab, resetStats, journal, setJournal, setDay }) {
     const [wOpen, setWOpen] = useState(false);
     const [wVal, setWVal] = useState(profile.weight);
@@ -2289,6 +2335,7 @@ function Home({ profile, setProfile, habits, supps, day, daily, setDayFor, tasks
         React.createElement(WinDayCard, { daily, day, setDay, habits, diet }),
         React.createElement(GoalMini, { setTab }),
         React.createElement(IOSAlarmEvening, { alarmCfg: lsJSON("mp_alarms_v1", null) || HOME_DEF_ALARMS, events: lsJSON("mp_events_v1", []), setTab }),
+        React.createElement(HardSleepCard, { profile, setProfile, events, daily, compact: true }),
         React.createElement(FreeFundsCard, { finance, setFinance, setToast }),
         React.createElement(Card, { style: { marginTop: 18, display: "flex", alignItems: "center", gap: 18, position: "relative", overflow: "hidden" } },
             dayPct === 100 && React.createElement("div", { style: { position: "absolute", inset: 0, background: "radial-gradient(120px 80px at 22% 50%, var(--green-glow), transparent)", animation: "pulse 2s ease-in-out infinite" } }),
@@ -4606,6 +4653,12 @@ const dgExtraLines = (daily, diet) => {
     }
     const evs = days.map((k) => evalPlanDay(k, daily[k], mult));
     const full = evs.filter((e) => e.macroOk).length;
+    try {
+      const evAll = lsJSON("mp_events_v1", []) || [];
+      const tk = todayKey(), sT = sleepPlan(evAll, tk, null, daily), sN = sleepPlan(evAll, addDays(tk, 1), null, daily);
+      const slT = (daily[tk] || {}).sl || {};
+      L.push(`SEN — NIENEGOCJOWALNE PORY: dzis wstanie wg zasady ${m2hm(sT.plannedWake)}${slT.wake != null ? `, faktycznie wstal z lozka ${m2hm(slT.wake)}${slT.wake - sT.plannedWake > 20 ? " (SPOZNIENIE " + (slT.wake - sT.plannedWake) + " min)" : ""}` : " (godzina wstania niezapisana)"}; lozko dzis ${sT.bed != null ? m2hm(sT.bed) : "nocka"}; jutro (${sN.s0}) wstanie ${m2hm(sN.plannedWake)}.`);
+    } catch (e) { }
     const tEv = evs[evs.length - 1];
     L.push(`DIETA (oceniaj WYLACZNIE makro, nie posilki ani produkty): dzis ${Math.round(tEv.total.kcal)}/${Math.round(tEv.planned.kcal)} kcal, bialko ${Math.round(tEv.total.p)}/${Math.round(tEv.planned.p)} g, tluszcz ${tEv.total.kcal ? Math.round(tEv.total.f * 9 / tEv.total.kcal * 100) : 0}% kalorii. ${tEv.macroOk ? "Makro OK." : "Brakuje: " + [tEv.brak.kcal ? tEv.brak.kcal + " kcal" : "", tEv.brak.p ? tEv.brak.p + " g bialka" : "", tEv.macroRules.find((r) => r.id === "fat" && !r.ok) ? "tluszczu (ponizej 50% kalorii)" : ""].filter(Boolean).join(", ") + "."} Dni z kompletnym makro w 7 dni: ${full}/7.`);
     L.push(`TRENING: plan PPL (Push/Pull/Legs + mobilnosc, szyja, przedramiona). Nastepny w kolejce: ${(WORKOUTS_PPL.find((w2) => w2.id === nextPPL(daily)) || {}).short}.`);
@@ -6358,7 +6411,9 @@ function iosAlarmList(alarmCfg, events, offset) {
   d.setDate(d.getDate() + offset);
   const k = keyOf(d);
   const sh = shiftOfDate(events, k);
-  const c = (alarmCfg || {})[sh] || {};
+  let c = (alarmCfg || {})[sh] || {};
+  // pobudka = nienegocjowalna godzina wstania (wg zmiany), nie stary alarm
+  try { const spw = sleepPlan(events, k, alarmCfg); if (spw.hard && spw.plannedWake != null && sh !== "Nocka") c = { ...c, wake: m2hm(spw.plannedWake) }; } catch (e) { }
   const nowHM = `${pad((/* @__PURE__ */ new Date()).getHours())}:${pad((/* @__PURE__ */ new Date()).getMinutes())}`;
   const items = Object.keys(AL_LABELS).filter((f) => c[f] && /^\d{1,2}:\d{2}$/.test(c[f]) && (offset > 0 || c[f] > nowHM)).map((f) => ({ t: c[f].padStart(5, "0"), l: "MP \xB7 " + AL_LABELS[f] }));
   const seen = /* @__PURE__ */ new Set();
@@ -6403,7 +6458,7 @@ function IOSAlarmEvening({ alarmCfg, events, setTab }) {
   return /* @__PURE__ */ React.createElement(IOSAlarmCard, { alarmCfg, events, setTab, compact: true });
 }
 
-function AlarmCenter({ alarmCfg, defaultAlarms, saveAlarms, notifPerm, askNotif, events, setToast, fireAlarm }) {
+function AlarmCenter({ alarmCfg, defaultAlarms, saveAlarms, notifPerm, askNotif, events, setToast, fireAlarm, profile, setProfile }) {
     const [editShift, setEditShift] = useState(null);
     const [draft, setDraft] = useState({});
     const todayKey2 = () => { const d = new Date(); const p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; };
@@ -6430,6 +6485,7 @@ function AlarmCenter({ alarmCfg, defaultAlarms, saveAlarms, notifPerm, askNotif,
     };
     return (React.createElement("div", null,
         React.createElement(DevHeader, { icon: Bell, tint: "var(--gold)", kicker: "Alarmy i powiadomienia", title: "Centrum alarm\u00F3w" }),
+        profile && setProfile && React.createElement(HardSleepCard, { profile, setProfile, events, daily: lsJSON("mp_daily_v4", {}) }),
         React.createElement(IOSAlarmCard, { alarmCfg: cfg, events }),
         React.createElement(PhoneAlarmCard, { cfg: cfg, todayShift: todayShift, setToast: setToast }),
         React.createElement(Card, { style: { marginTop: 14, background: notifPerm === "granted" ? "rgba(34,197,94,.08)" : "rgba(245,181,61,.1)", border: notifPerm === "granted" ? "1px solid rgba(34,197,94,.3)" : "1px solid rgba(245,181,61,.35)" } },
@@ -8265,6 +8321,7 @@ JEGO KIERUNEK:
 JAK MYŚLISZ:
 - Najpierw fakty i liczby z DANYCH, potem wniosek. Liczysz na głos krótko (np. „60 klientów × 449 zł = 26 940 zł”). Rozróżniasz scenariusz bazowy od optymistycznego i, gdy to ważne, podajesz uczciwą szansę w %.
 - Nie wymyślasz danych. Gdy czegoś brakuje, mówisz w jednym zdaniu, co ma uzupełnić w aplikacji.
+- SEN: pory wstawania i snu są nienegocjowalne (ustalone wg zmian). Oceniasz godzinę wstania Z ŁÓŻKA vs zasada i godzinę pójścia spać. Spóźnienie nazywasz wprost i dajesz jedną konkretną poprawkę na jutro. Nigdy nie proponujesz przesunięcia snu jako rozwiązania — skraca się dzień, nie noc.
 - DIETA: oceniasz wyłącznie makro (kalorie, białko, tłuszcz). Nigdy nie wypominasz, że nie zjadł konkretnego posiłku z planu albo produktu — są dni, kiedy je zupełnie inaczej i to jest w porządku. Mówisz tylko, ilu kcal / gramów białka brakuje i jak to najprościej dobić.
 - Szukasz sedna: co jedno najbardziej zmieni wynik. Wskazujesz, gdy ucieka w budowanie zamiast w sprzedaż albo w nowy projekt zamiast w obecne.
 - Nie dopytujesz o motywy i nie przesłuchujesz. Odpowiadasz wprost.
