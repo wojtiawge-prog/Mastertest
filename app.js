@@ -1906,6 +1906,7 @@ function dayItems(events, tasks, k, daily) {
     }
     const mp = ((daily || lsJSON("mp_daily_v4", {}))[k] || {}).mplan || {};
     const lbl = [["m1", "\u{1F373} Posi\u0142ek 1", 15], ["m2", "\u{1F969} Posi\u0142ek 2 (najwi\u0119kszy)", 30], ["m3", "\u{1F964} Koktajl", 5]];
+    lbl.forEach(([id, t, mn], i) => { const ov = hm2m((mp[id] || {}).t); if (ov != null) mt[i] = ov; }); // ręcznie ustawiona godzina posiłku wygrywa z wyliczoną
     lbl.forEach(([id, t, mn], i) => out.push({ kind: "meal", t0: mt[i], t1: mt[i] + mn, title: t + (i === 2 && sh === "Nocka" ? " (lekko, w pracy)" : sh === "Ranka" || sh === "Popo\u0142udnie" && i > 0 ? " (w pracy)" : ""), mid: id, done: !!(mp[id] || {}).done, par: true }));
   }
   const bo = ((daily || lsJSON("mp_daily_v4", {}))[k] || {}).bo || {};
