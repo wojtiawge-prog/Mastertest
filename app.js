@@ -1491,7 +1491,17 @@ export default function App() {
     const toggleHabit = (id) => { buzz(8); setDay((c) => ({ ...c, habits: { ...(c.habits || {}), [id]: !(c.habits || {})[id] } })); };
     const toggleSupp = (id) => { buzz(8); setDay((c) => ({ ...c, supps: { ...(c.supps || {}), [id]: !(c.supps || {})[id] } })); };
     /* ── rest timer (lives in App so it survives tab switches) ── */
-    const [timer, setTimer] = useState({ dur: 90, left: 90, running: false, label: "Regeneracja" });
+    // czas liczony od znacznika końca (end), a nie odejmowaniem co sekundę — przy zgaszonym ekranie
+    // przeglądarka wstrzymuje setInterval, więc po powrocie licznik musi się przeliczyć z zegara
+    const [timer, setTimerRaw] = useState({ dur: 90, left: 90, running: false, label: "Regeneracja", end: null });
+    const setTimer = useCallback((u) => setTimerRaw((t) => {
+        const n = typeof u === "function" ? u(t) : u;
+        if (!n.running)
+            return { ...n, end: null };
+        if (!t.running || n.left !== t.left || !n.end)
+            return { ...n, end: Date.now() + n.left * 1000 };
+        return n;
+    }), []);
     const audioRef = useRef(null);
     const beep = () => {
         try {
@@ -1516,17 +1526,22 @@ export default function App() {
     useEffect(() => {
         if (!timer.running)
             return;
-        const iv = setInterval(() => {
-            setTimer((t) => {
-                if (t.left <= 1) {
-                    beep();
-                    buzz([120, 60, 120]);
-                    return { ...t, left: 0, running: false };
-                }
-                return { ...t, left: t.left - 1 };
-            });
-        }, 1000);
-        return () => clearInterval(iv);
+        const tick = () => setTimerRaw((t) => {
+            if (!t.running || !t.end)
+                return t;
+            const left = Math.max(0, Math.ceil((t.end - Date.now()) / 1000));
+            if (left <= 0) {
+                beep();
+                buzz([120, 60, 120]);
+                return { ...t, left: 0, running: false, end: null };
+            }
+            return left === t.left ? t : { ...t, left };
+        });
+        const iv = setInterval(tick, 250);
+        const onVis = () => { if (!document.hidden) tick(); };
+        document.addEventListener("visibilitychange", onVis);
+        window.addEventListener("focus", onVis);
+        return () => { clearInterval(iv); document.removeEventListener("visibilitychange", onVis); window.removeEventListener("focus", onVis); };
     }, [timer.running]);
     const startTimer = (sec, label) => { if (audioRef.current)
         audioRef.current.resume?.(); setTimer({ dur: sec, left: sec, running: true, label: label || "Regeneracja" }); };
