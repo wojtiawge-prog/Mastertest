@@ -1052,10 +1052,14 @@ function SetLogger({ ex, day, setDay, daily, startTimer }) {
     const upd = (i, patch) => writeLog((rows) => rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
     const addRow = () => writeLog((rows) => { const last = rows[rows.length - 1] || { w: 0, rpe: 8 }; return [...rows, { w: last.w, reps: "", rpe: last.rpe, done: false }]; });
     const delRow = (i) => writeLog((rows) => rows.filter((_, j) => j !== i));
+    const lastTap = useRef({ i: -1, t: 0 });
     const toggleDone = (i) => {
+        const now = Date.now();
+        if (lastTap.current.i === i && now - lastTap.current.t < 400) return; // podwójne odpalenie jednego tapnięcia
+        lastTap.current = { i, t: now };
         const rows = ensureRows();
-        const wasDone = !!(rows[i] && rows[i].done);
-        writeLog((cur) => cur.map((r, j) => (j === i ? { ...r, done: !(r && r.done) } : r)));
+        const wasDone = !!(rows[i] && rows[i].done); // stan, który widzisz na ekranie
+        writeLog((cur) => cur.map((r, j) => (j === i ? { ...r, done: !wasDone } : r)));
         buzz(wasDone ? 4 : 12);
         if (!wasDone && restOf(ex) > 0)
             startTimer(restOf(ex), ex.n);
@@ -2802,7 +2806,7 @@ function Train({ day, setDay, daily, timer, setTimer, startTimer, prs, setPrs })
             startTimer(restOf(ex), ex.n);
     };
     const finishWorkout = () => { buzz([100, 50, 100]); setDay((c) => ({ ...c, workoutDone: true, workoutId: selId })); };
-    const resetWorkout = () => setDay((c) => ({ ...c, sets: { ...(c.sets || {}), ...Object.fromEntries(workout.ex.map((e) => [e.id, Array(e.s).fill(false)])) }, workoutDone: false }));
+    const resetWorkout = () => setDay((c) => { const sl = { ...(c.setlog || {}) }; workout.ex.forEach((e) => { if (sl[e.id]) sl[e.id] = sl[e.id].map((r) => ({ ...r, done: false })); }); return { ...c, sets: { ...(c.sets || {}), ...Object.fromEntries(workout.ex.map((e) => [e.id, Array(e.s).fill(false)])) }, setlog: sl, workoutDone: false }; });
     const adj = (d) => setTimer((t) => ({ ...t, left: Math.max(0, t.left + d), dur: Math.max(t.dur, t.left + d) }));
     const presets = [45, 60, 75, 90, 120, 180];
     return (React.createElement("div", null,
