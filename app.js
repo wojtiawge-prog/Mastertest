@@ -1013,8 +1013,10 @@ const bestEverE1RM = (daily, exId) => {
 /* wspólny stan serii: day.sets (pasek) i day.setlog (kg×powt) muszą się zgadzać */
 const withLogDone = (c, exId, idx, val) => {
     const sl = c.setlog && c.setlog[exId];
-    if (!sl || !sl[idx]) return c.setlog;
-    return { ...c.setlog, [exId]: sl.map((r, j) => (j === idx ? { ...r, done: !!val } : r)) };
+    if (!sl || !sl.length) return c.setlog;
+    const rows = sl.slice();
+    while (rows.length <= idx) { const last = rows[rows.length - 1] || { w: 0, rpe: 8 }; rows.push({ w: last.w, reps: "", rpe: last.rpe, done: false }); }
+    return { ...c.setlog, [exId]: rows.map((r, j) => (j === idx ? { ...r, done: !!val } : r)) };
 };
 /* ——— logger serii per ćwiczenie (kg × powt × RPE) — styl Hevy/Strong ——— */
 function SetLogger({ ex, day, setDay, daily, startTimer }) {
@@ -1053,7 +1055,7 @@ function SetLogger({ ex, day, setDay, daily, startTimer }) {
     const toggleDone = (i) => {
         const rows = ensureRows();
         const wasDone = !!(rows[i] && rows[i].done);
-        writeLog((cur) => cur.map((r, j) => (j === i ? { ...r, done: !wasDone } : r)));
+        writeLog((cur) => cur.map((r, j) => (j === i ? { ...r, done: !(r && r.done) } : r)));
         buzz(wasDone ? 4 : 12);
         if (!wasDone && restOf(ex) > 0)
             startTimer(restOf(ex), ex.n);
