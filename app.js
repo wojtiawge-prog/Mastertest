@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from "react";
 import { Flame, Check, Plus, X, Dumbbell, Wallet, ListTodo, Sun, Pill, Timer as TimerIcon, ChevronRight, ChevronLeft, Trash2, ArrowRightLeft, Pause, Play, RotateCcw, Minus, TrendingUp, Target, MoreHorizontal, Coffee, Moon, Zap, PiggyBank, Pencil, Star, CalendarDays, BarChart3, Coins, AlertTriangle, Settings, Bell, Quote, Sparkles, ArrowDownToLine, Lightbulb, Apple, Beef, Wheat, Droplet, ShoppingCart, Store, Carrot, Utensils } from "lucide-react";
 /* ───────────────────────── storage (persists across sessions) ───────────────────────── */
 const mem = new Map();
@@ -491,13 +491,22 @@ const sync = {
           const m = this.meta[k] || {};
           const ts = Math.max(Date.now(), (m.base || 0) + 1);
           const ok = m.base == null ? await this.cloud.insertRow(this.user.id, k, val, ts) : await this.cloud.updateIf(k, val, ts, m.base);
-          if (ok) { lsSet(BASE_KEY(k), raw); this.meta[k] = { ts, h: hashStr(raw), base: ts }; break; }
+          if (ok) {
+            lsSet(BASE_KEY(k), raw);
+            this.meta[k] = { ts, h: hashStr(raw), base: ts };
+            if (lsGet(k) !== raw) { this.meta[k].h = "x"; this.dirty.add(k); this.schedule(400); } // zmiana w trakcie wysyłki → wyślij jeszcze raz
+            break;
+          }
           // konflikt: ktoś zapisał w międzyczasie → pobierz, połącz, spróbuj jeszcze raz
           const r = await this.cloud.row(k);
           if (!r) { this.meta[k] = { ...m, base: null }; continue; }
-          const merged = merge3(this.baseVal(k), val, r.value);
+          // łącz z AKTUALNĄ wersją lokalną (mogła się zmienić w trakcie zapytania — np. odhaczone zadanie)
+          let curL = val;
+          try { const cr = lsGet(k); if (cr != null) curL = JSON.parse(cr); } catch { }
+          const merged = merge3(this.baseVal(k), curL, r.value);
           this.applyRemote(k, merged, Number(r.ts) || 0);
           if (_eq(merged, r.value)) break;
+          this.meta[k].h = "x";
         }
       }
       this.saveMeta();
@@ -1399,17 +1408,17 @@ export default function App() {
         })();
     }, []);
     /* persist slices */
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_profile_v1", profile); }, [profile, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_habits_v1", habits); }, [habits, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_supps_v1", supps); }, [supps, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_daily_v4", daily); }, [daily, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_tasks_v1", tasks); }, [tasks, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_finance_v1", finance); }, [finance, ready]);
     useEffect(() => {
         if (!ready) return;
@@ -1418,19 +1427,19 @@ export default function App() {
         const iv = setInterval(chk, 30 * 60e3);
         return () => clearInterval(iv);
     }, [ready, finance.salary]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_events_v1", events); }, [events, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_diet_v1", diet); }, [diet, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_shopping_v1", shopping); }, [shopping, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_saas_v1", saasData); }, [saasData, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_measures_v1", measures); }, [measures, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_books_v1", books); }, [books, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_prs_v1", prs); }, [prs, ready]);
     useEffect(() => { if (!ready)
         return; (async () => { let ok = false; try {
@@ -1438,21 +1447,21 @@ export default function App() {
     }
     catch (e) { } if (!ok)
         save("mp_photos_v1", photos); })(); }, [photos, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_review_v1", weekFocus); }, [weekFocus, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_medi_v1", medi); }, [medi, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_voice_v1", voiceLog); }, [voiceLog, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_blood_v1", bloodLog); }, [bloodLog, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_charisma_v1", charisma); }, [charisma, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_journal_v1", journal); }, [journal, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_bizplan_v1", bizplan); }, [bizplan, ready]);
-    useEffect(() => { if (ready)
+    useLayoutEffect(() => { if (ready)
         save("mp_trades_v1", trades); }, [trades, ready]);
     useEffect(() => {
         if (!ready)
