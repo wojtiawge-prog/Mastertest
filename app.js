@@ -1947,15 +1947,17 @@ function dayItems(events, tasks, k, daily) {
     // Ranka: 2 w pracy + 1 po pracy (największy) + koktajl · Popołudnie: 2 rano, 1 w pracy · Nocka: 2 przed, lekko w pracy.
     const W = sp.plannedWake;
     let M;
-    if (sh === "Ranka") M = [["m1", "\u{1F371} Posi\u0142ek 1 (w pracy, z pude\u0142ka)", 570, 15], ["m2", "\u{1F371} Posi\u0142ek 2 (w pracy, z pude\u0142ka)", 750, 30], ["m3", "\u{1F969} Posi\u0142ek 3 \u2014 po pracy, najwi\u0119kszy", 945, 25], ["m4", "\u{1F964} Koktajl", 1145, 5]];
-    else if (sh === "Popo\u0142udnie") M = [["m1", "\u{1F373} Posi\u0142ek 1", W + 120, 20], ["m2", "\u{1F969} Posi\u0142ek 2 \u2014 najwi\u0119kszy, przed wyjazdem", 765, 30], ["m3", "\u{1F371} Posi\u0142ek 3 (w pracy, z pude\u0142ka)", 1140, 30]];
-    else if (sh === "Nocka" && shPrevM === "Nocka") M = [["m1", "\u{1F373} Posi\u0142ek 1", W + 15, 20], ["m2", "\u{1F969} Posi\u0142ek 2 \u2014 najwi\u0119kszy, przed wyjazdem", 1230, 30], ["m3", "\u{1F964} Koktajl (lekko, w pracy)", 1410, 5]];
-    else if (sh === "Nocka") M = [["m1", "\u{1F373} Posi\u0142ek 1", W + 120, 20], ["m2", "\u{1F969} Posi\u0142ek 2 \u2014 najwi\u0119kszy", 780, 30], ["m3", "\u{1F371} Posi\u0142ek 3 przed wyjazdem", 1230, 25], ["m4", "\u{1F964} Koktajl (lekko, w pracy)", 1410, 5]];
+    // Przerwy w pracy: krótka 1,5 h po starcie (15 min), długa ~4 h po starcie (35 min), krótka 1,5 h przed końcem (15 min).
+    if (sh === "Ranka") M = [["m1", "\u{1F34C} Przek\u0105ska \u2014 kr\u00F3tka przerwa (owoc + orzechy / skyr)", 510, 10], ["m2", "\u{1F371} Posi\u0142ek w pracy \u2014 d\u0142uga przerwa, na spokojnie", 660, 35], ["m3", "\u{1F95A} Przek\u0105ska \u2014 kr\u00F3tka przerwa (jajka / ser / jerky)", 810, 10], ["m4", "\u{1F969} Obiad po pracy \u2014 najwi\u0119kszy", 945, 25], ["m5", "\u{1F964} Koktajl", 1145, 5]];
+    else if (sh === "Popo\u0142udnie") M = [["m1", "\u{1F373} Posi\u0142ek 1", W + 120, 20], ["m2", "\u{1F969} Posi\u0142ek 2 \u2014 najwi\u0119kszy, przed wyjazdem", 765, 30], ["m3", "\u{1F34C} Przek\u0105ska \u2014 kr\u00F3tka przerwa", 990, 10], ["m4", "\u{1F371} Posi\u0142ek w pracy \u2014 d\u0142uga przerwa, na spokojnie", 1140, 35], ["m5", "\u{1F95B} Lekka przek\u0105ska \u2014 kr\u00F3tka przerwa (skyr / kefir)", 1290, 10]];
+    else if (sh === "Nocka" && shPrevM === "Nocka") M = [["m1", "\u{1F373} Posi\u0142ek 1", W + 15, 20], ["m2", "\u{1F969} Posi\u0142ek 2 \u2014 najwi\u0119kszy, przed wyjazdem", 1230, 30]];
+    else if (sh === "Nocka") M = [["m1", "\u{1F373} Posi\u0142ek 1", W + 120, 20], ["m2", "\u{1F969} Posi\u0142ek 2 \u2014 najwi\u0119kszy", 780, 30], ["m3", "\u{1F371} Posi\u0142ek 3 przed wyjazdem", 1230, 25]];
     else {
       const P1 = Math.max(sp.firstMeal, 0);
       const K = sp.lastMeal != null ? sp.lastMeal : P1 + 540;
       M = [["m1", "\u{1F373} Posi\u0142ek 1", P1, 20], ["m2", "\u{1F969} Posi\u0142ek 2 (najwi\u0119kszy)", Math.round((P1 + K) / 2 / 15) * 15, 30], ["m3", "\u{1F37D}\uFE0F Posi\u0142ek 3", K, 25]];
     }
+    if (shPrevM === "Nocka") M.unshift(["mn", "\u{1F95B} Lekko w nocy \u2014 d\u0142uga przerwa (skyr / kefir / owoc)", 180, 15]);
     const mp = ((daily || lsJSON("mp_daily_v4", {}))[k] || {}).mplan || {};
     M.forEach(([id, t, at, mn]) => { const ov = hm2m((mp[id] || {}).t); const t0 = ov != null ? ov : at; out.push({ kind: "meal", t0, t1: t0 + mn, title: t, mid: id, done: !!(mp[id] || {}).done, par: true }); });
   }
@@ -1967,7 +1969,7 @@ function dayItems(events, tasks, k, daily) {
   }
   if (shNext === "Ranka" && !(sh === "Wolne") && sp.routine != null && !(bo.pack === "skip")) {
     const t0 = hm2m(bo.pack && bo.pack.at) ?? sp.routine - 20;
-    out.push({ kind: "block", t0, t1: t0 + 15, title: "\u{1F371} Spakuj na jutro: 2 pude\u0142ka do pracy + koktajl (15 min)", bid: "pack" });
+    out.push({ kind: "block", t0, t1: t0 + 15, title: "\u{1F371} Spakuj na jutro: pude\u0142ko na d\u0142ug\u0105 przerw\u0119 + 2 przek\u0105ski (15 min)", bid: "pack" });
   }
   const planKey = sh === "Nocka" && shPrev === "Nocka" ? "Nocka2" : sh === "Wolne" && shPrev === "Nocka" ? "PoNocce" : sh;
   (BLOCK_PLAN[planKey] || []).forEach(([id, title, st, min, par]) => {
