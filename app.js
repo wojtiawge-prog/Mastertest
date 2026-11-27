@@ -1808,7 +1808,7 @@ const evKeyNow = () => {
   return keyOf(d);
 };
 // ── Nienegocjowalne pory snu (wg zmiany dziś i jutro). Wpis „planBed” ich nie przesuwa — dzień się skraca, nie noc.
-const HARD_SLEEP_DEF = { on: true, Ranka: { wake: "05:30" }, "Popo\u0142udnie": { wake: "08:00", wake2: "08:30", bed: "00:30" }, Wolne: { wake: "07:30", bed: "23:00" }, przedRanka: { bed: "21:30" }, przedPopo: { bed: "23:00" }, poNocce: { wake: "13:00" } };
+const HARD_SLEEP_DEF = { on: true, Ranka: { wake: "05:15" }, "Popo\u0142udnie": { wake: "08:30", wake2: "08:30", bed: "01:00" }, Wolne: { wake: "07:30", bed: "00:00" }, przedRanka: { bed: "21:45" }, przedPopo: { bed: "01:00" }, poNocce: { wake: "13:00" }, Nocka1: { wake: "08:30" }, miedzyNockami: { wake: "15:30" } }; // 7,5 h = 5 pełnych cykli
 const hardSleepCfg = () => { const p = lsJSON("mp_profile_v1", {}) || {}; const h = p.hardSleep || {}; const out = {}; Object.keys(HARD_SLEEP_DEF).forEach((k) => { out[k] = typeof HARD_SLEEP_DEF[k] === "object" ? { ...HARD_SLEEP_DEF[k], ...(h[k] || {}) } : (h[k] !== undefined ? h[k] : HARD_SLEEP_DEF[k]); }); return out; };
 const bedMin = (hm) => { const m = hm2m(hm); return m == null ? null : m < 720 ? m + 1440 : m; };
 function sleepPlan(events, k, alarms, daily) {
@@ -1820,6 +1820,7 @@ function sleepPlan(events, k, alarms, daily) {
   const hardOn = H.on !== false;
   const wakeOf = (s) => (hardOn && s !== "Nocka" && H[s] && hm2m(H[s].wake) != null ? hm2m(H[s].wake) : null) ?? hm2m((A[s] || {}).wake) ?? (s === "Ranka" ? 300 : s === "Popo\u0142udnie" ? 450 : 480);
   let wake = wakeOf(s0), bed = null, note = "", nap = null, dayNap = null;
+  if (hardOn && s0 === "Nocka" && sp !== "Nocka" && H.Nocka1 && hm2m(H.Nocka1.wake) != null) wake = hm2m(H.Nocka1.wake);
   // 2. dzień popołudniówki: wróciłeś ~23:30, więc jeszcze późniejsza pobudka
   if (hardOn && s0 === "Popo\u0142udnie" && sp === "Popo\u0142udnie" && hm2m(H["Popo\u0142udnie"].wake2) != null) wake = hm2m(H["Popo\u0142udnie"].wake2);
   if (sp === "Nocka" && s0 !== "Nocka") {
@@ -1828,14 +1829,14 @@ function sleepPlan(events, k, alarms, daily) {
     note = "Po nocce: kr\xF3tki sen do 13:00, wieczorem normalnie \u2014 reset rytmu";
   }
   if (sp === "Nocka" && s0 === "Nocka") {
-    wake = 870;
-    dayNap = [480, 870];
-    note = "Mi\u0119dzy nockami: \u015Bpij 8:00\u201314:30 w ciemno\u015Bci";
+    wake = hardOn && H.miedzyNockami && hm2m(H.miedzyNockami.wake) != null ? hm2m(H.miedzyNockami.wake) : 930;
+    dayNap = [480, wake];
+    note = "Mi\u0119dzy nockami: \u015Bpij od 8:00 w ciemno\u015Bci (7,5 h = 5 cykli)";
   }
   if (s0 === "Nocka") {
     bed = null;
-    nap = sp !== "Nocka" ? [930, 1050] : null;
-    note = note || "Nocka: drzemka 15:30\u201317:30 przed wyjazdem";
+    nap = sp !== "Nocka" ? [930, 1020] : null; // 1 pe\u0142ny cykl 90 min
+    note = note || "Nocka: drzemka 15:30\u201317:00 przed wyjazdem (1 cykl)";
   } else if (s0 === "Popo\u0142udnie") bed = 1455;
   else if (s1 === "Ranka") bed = 1290;
   else if (s1 === "Nocka") bed = 1470;
@@ -1908,13 +1909,18 @@ const confOf = (k) => {
   const c = CONF_CH[n % CONF_CH.length];
   return { t: c[0], m: c[1], n: n % CONF_CH.length + 1 };
 };
+// System dnia (27.11.2026): najtrudniejsze zaraz po starcie dnia. Godziny "wake+N" liczą się od planowanej pobudki.
+// Faza 1 (od 28.11): trening, Wim Hof, SkupOS, spacery + czas z Karoliną. Faza 2 (od 5.12): + trading i nauka, deep work +15 min.
 const BLOCK_PLAN = {
-  Wolne: [["conf", "", "08:45", 10], ["deep", "\u{1F4BC} Deep work: SkupOS + telefony do skup\xF3w", "09:00", 120], ["trade", "\u{1F4C8} Trading: wykresy, plan, wej\u015Bcia", "11:15", 30], ["train", "\u{1F3CB}\uFE0F Trening PPL", "12:30", 75], ["learn", "\u{1F3AF} Nauka sprzeda\u017Cy i marketingu", "16:00", 45], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "18:30", 45]],
-  "Popo\u0142udnie": [["conf", "", "08:15", 10], ["deep", "\u{1F4BC} Deep work + telefony do skup\xF3w", "08:30", 90], ["train", "\u{1F3CB}\uFE0F Trening PPL", "10:15", 60], ["trade", "\u{1F4C8} Trading: wykresy i plan", "11:45", 20], ["learn", "\u{1F3A7} Nauka sprzeda\u017Cy: audiobook w aucie", "14:15", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "19:00", 60, true], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "13:15", 30]],
-  "Popo\u0142udnie1": [["conf", "", "05:00", 10], ["deep", "\u{1F4BC} Deep work SkupOS (najświeższa głowa)", "05:15", 120], ["trade", "\u{1F4C8} Trading: plan + otwarcie Londynu", "08:45", 60], ["call", "\u{1F4DE} Telefony do skupów (skupy otwarte)", "10:00", 60], ["train", "\u{1F3CB}\uFE0F Trening PPL", "11:15", 60], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "12:45", 30], ["nap", "\u{1F634} Drzemka max 20 min", "13:25", 20], ["learn", "\u{1F3A7} Nauka sprzeda\u017Cy: audiobook w aucie", "14:15", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "19:00", 60, true]],
-  Ranka: [["read", "\u{1F3A7} Audiobook / podcast w drodze", "06:15", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "10:00", 60, true], ["med", "\u{1F9D8} Medytacja po powrocie (reset)", "15:40", 10], ["trade", "\u{1F4C8} Trading: wykresy i plan", "16:00", 20], ["conf", "", "16:20", 10], ["deep", "\u{1F4BC} Deep work nad biznesem", "16:30", 60], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "17:45", 40], ["learn", "\u{1F3AF} Nauka sprzeda\u017Cy i marketingu", "18:45", 25]],
-  Nocka: [["walk", "\u{1F6B6} Spacer z Karolin\u0105", "18:30", 40], ["conf", "", "17:40", 10], ["med", "\u{1F9D8} Medytacja przed drzemk\u0105", "15:15", 10], ["trade", "\u{1F4C8} Trading: szybki przegl\u0105d", "18:00", 20], ["learn", "\u{1F3A7} Audiobook o sprzeda\u017Cy w drodze", "22:25", 25, true], ["pod", "\u{1F3A7} Podcast o biznesie w pracy (je\u015Bli BHP pozwala)", "23:30", 60, true]]
+  Wolne: [["wh", "\u{1F32C}\uFE0F Wim Hof: 3 rundy (siedz\u0105c / le\u017C\u0105c)", "wake+10", 15], ["deep", "\u{1F9E0} Deep work: SkupOS", "wake+30", 150], ["trade", "\u{1F4C8} Trading: wykresy i plan", "wake+195", 20], ["train", "\u{1F3CB}\uFE0F Trening", "wake+220", 75], ["learn", "\u{1F4DA} Nauka: sprzeda\u017C i marketing", "16:00", 30], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "16:45", 45], ["kar", "\u2764\uFE0F Wiecz\u00F3r z Karolin\u0105 \u2014 telefon odlo\u017Cony", "19:00", 120]],
+  "Popo\u0142udnie": [["wh", "\u{1F32C}\uFE0F Wim Hof: 3 rundy (siedz\u0105c / le\u017C\u0105c)", "wake+10", 15], ["deep", "\u{1F9E0} Deep work: SkupOS", "wake+30", 90], ["trade", "\u{1F4C8} Trading: wykresy i plan", "wake+140", 20], ["train", "\u{1F3CB}\uFE0F Trening", "wake+165", 75], ["walk", "\u{1F6B6} Spacer + obiad z Karolin\u0105", "12:45", 45], ["learn", "\u{1F3A7} Nauka: audiobook w aucie", "14:15", 25, true]],
+  Ranka: [["wh", "\u{1F32C}\uFE0F Wim Hof: 3 rundy (siedz\u0105c, nigdy za kierownic\u0105)", "wake+10", 15], ["nap", "\u{1F634} Power nap \u2014 max 20 min", "15:40", 20], ["mid", "\u{1F527} Praca \u015Brednia: testy, telefony, poprawki", "16:15", 60], ["trade", "\u{1F4C8} Trading: przegl\u0105d", "17:20", 20], ["train", "\u{1F3CB}\uFE0F Trening", "17:45", 75], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "19:10", 30]],
+  Nocka: [["wh", "\u{1F32C}\uFE0F Wim Hof: 3 rundy (siedz\u0105c / le\u017C\u0105c)", "wake+10", 15], ["deep", "\u{1F9E0} Deep work: SkupOS", "wake+30", 120], ["train", "\u{1F3CB}\uFE0F Trening", "wake+165", 75], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "13:15", 45], ["trade", "\u{1F4C8} Trading: szybki przegl\u0105d", "14:15", 20], ["kar", "\u2764\uFE0F Czas z Karolin\u0105 \u2014 telefon odlo\u017Cony", "18:30", 90]],
+  Nocka2: [["wh", "\u{1F32C}\uFE0F Wim Hof: 3 rundy (siedz\u0105c / le\u017C\u0105c)", "wake+10", 15], ["mid", "\u{1F527} Praca \u015Brednia: SkupOS", "wake+30", 45], ["train", "\u{1F3CB}\uFE0F Trening", "wake+80", 75], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "18:30", 40], ["kar", "\u2764\uFE0F Czas z Karolin\u0105 \u2014 telefon odlo\u017Cony", "19:15", 90]],
+  PoNocce: [["wh", "\u{1F32C}\uFE0F Wim Hof: 3 rundy (siedz\u0105c / le\u017C\u0105c)", "wake+10", 15], ["sun", "\u2600\uFE0F Dw\u00F3r + \u015Bwiat\u0142o dzienne (reset zegara)", "wake+30", 30], ["mid", "\u{1F527} Praca \u015Brednia: SkupOS", "wake+75", 60], ["train", "\u{1F3CB}\uFE0F Trening (l\u017Cejszy)", "16:15", 60], ["kar", "\u2764\uFE0F Wiecz\u00F3r z Karolin\u0105 \u2014 telefon odlo\u017Cony", "19:00", 120]]
 };
+const PHASE_FROM = { trade: "2026-12-05", learn: "2026-12-05" }; // nawyki dokładane stopniowo
+const DEEP_BONUS = (k) => (k >= "2026-12-05" ? 15 : 0);
 const blockStart = (spec, sp) => {
   const m = /^(wake|routine)([+-]\d+)?$/.exec(spec);
   if (m) {
@@ -1956,10 +1962,12 @@ function dayItems(events, tasks, k, daily) {
     if (sh === "Wolne" && shNext === "Ranka") out.push({ kind: "block", t0: hm2m(bo.prep && bo.prep.at || "17:00"), t1: hm2m(bo.prep && bo.prep.at || "17:00") + 75, title: "\u{1F373} Meal prep na 3 dni: mi\u0119so/ryba + warzywa do pude\u0142ek (75 min)", bid: "prep" });
     if (sh === "Popo\u0142udnie" && shPrev === "Ranka") out.push({ kind: "block", t0: hm2m(bo.prep && bo.prep.at || "12:05"), t1: hm2m(bo.prep && bo.prep.at || "12:05") + 60, title: "\u{1F373} Meal prep na 3 dni (60 min)", bid: "prep" });
   }
-  const planKey = sh === "Popo\u0142udnie" && shPrev !== "Popo\u0142udnie" && BLOCK_PLAN["Popo\u0142udnie1"] ? "Popo\u0142udnie1" : sh;
+  const planKey = sh === "Nocka" && shPrev === "Nocka" ? "Nocka2" : sh === "Wolne" && shPrev === "Nocka" ? "PoNocce" : sh;
   (BLOCK_PLAN[planKey] || []).forEach(([id, title, st, min, par]) => {
     const o = bo[id];
     if (o === "skip" || o && o.skip) return;
+    if (PHASE_FROM[id] && k < PHASE_FROM[id] && !(o && o.at)) return;
+    if (id === "deep") min += DEEP_BONUS(k);
     if (id === "conf") {
       const c = confOf(k);
       title = `\u{1F4AC} Pewno\u015B\u0107 #${c.n}: ${c.t}`;
