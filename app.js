@@ -2154,6 +2154,13 @@ function ReminderHost({ events, setToast }) {
         if (nm >= t0 - rem && nm < t0) fire("ev_" + e.id, `\u23F0 ${e.title} o ${e.time}`, `Za ${t0 - nm} min.`);
       });
       const sp = sleepPlan(events, k);
+      { // przypomnienie: uzupełnij sen i wagę (ranka 6:40 · popołudniówka godzinę po pobudce · po nocce rano · wolne wieczorem)
+        const rec = (lsJSON("mp_daily_v4", {})[k] || {}).mplan || {};
+        if (!rec.logSaved) {
+          const at = sp.sp === "Nocka" && sp.s0 !== "Nocka" || sp.sp === "Nocka" && sp.s0 === "Nocka" ? 465 : sp.s0 === "Ranka" ? 400 : sp.s0 === "Popo\u0142udnie" ? sp.plannedWake + 60 : sp.s0 === "Nocka" ? sp.plannedWake + 60 : 1260;
+          if (nm >= at && nm < at + 120) fire("log_" + k, "\u{1F4DD} Uzupe\u0142nij sen i wag\u0119", "Dieta \u2192 Plan: o kt\u00F3rej do \u0142\u00F3\u017Cka, pobudka, waga. 20 sekund.");
+        }
+      }
       if (sp.routine != null && nm >= sp.routine && nm < sp.routine + 30) fire("rt_" + k, "\u{1F319} Czas na rutyn\u0119 wieczorn\u0105", `Sen o ${m2hm(sp.bed)}. Prysznic, z\u0119by, dziennik, ksi\u0105\u017Cka \u2014 kliknij \u201EId\u0119 czyta\u0107\u201D.`);
       Object.keys(sent).forEach((x) => {
         if (Date.now() - sent[x] > 3 * 864e5) delete sent[x];
@@ -4403,6 +4410,29 @@ const evalPlanDay = (key, rec, mult) => {
   const brak = { kcal: Math.max(0, Math.round(planned.kcal * 0.95 - total.kcal)), p: Math.max(0, Math.round(planned.p * 0.9 - total.p)) };
   return { meals, mealSums, planned, eaten, total, brak, rules, macroRules, macroOk: macroRules.every((r) => r.ok), passed, mp, tag: P2_ROT[weekdayIdx(key)], done };
 };
+// Dziennik snu i wagi: do łóżka → szacowane zaśnięcie (+90 min: rutyna + zasypianie) → pobudka → waga → Zapisz
+const SLEEP_LAG = 90;
+function SleepLog({ mp, onSave }) {
+  const [bedIn, setBedIn] = useState(mp.bedIn || "");
+  const [wake, setWake] = useState(mp.wake || "");
+  const [weight, setWeight] = useState(mp.weight || "");
+  const [ok, setOk] = useState(!!mp.logSaved);
+  const bm = hm2m(bedIn), wm = hm2m(wake);
+  const asleep = bm != null ? (bm + SLEEP_LAG) % 1440 : null;
+  const dur = asleep != null && wm != null ? (wm - asleep + 1440) % 1440 : null;
+  const f = (m) => `${pad(Math.floor(m / 60) % 24)}:${pad(m % 60)}`;
+  const tIn = { ...inputStyle, padding: "8px 8px", fontSize: 14, fontWeight: 700, textAlign: "center", marginTop: 4 };
+  const lbl = { fontSize: 11, color: "var(--muted)", display: "block" };
+  const save = () => { buzz(10); onSave({ bedIn, sleep: asleep != null ? f(asleep) : "", wake, weight, sleepMin: dur, logSaved: true }); setOk(true); };
+  return React.createElement("div", null,
+    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } },
+      React.createElement("label", { style: lbl }, "Do \u0142\u00F3\u017Cka (wczoraj)", React.createElement("input", { type: "time", value: bedIn, onChange: (e) => { setBedIn(e.target.value); setOk(false); }, style: tIn })),
+      React.createElement("div", { style: lbl }, "Zasn\u0105\u0142e\u015B ok. (+90 min)", React.createElement("div", { style: { ...tIn, color: asleep != null ? "var(--gold2)" : "var(--faint)", border: "1px dashed var(--line2)", background: "transparent" } }, asleep != null ? f(asleep) : "auto")),
+      React.createElement("label", { style: lbl }, "Pobudka", React.createElement("input", { type: "time", value: wake, onChange: (e) => { setWake(e.target.value); setOk(false); }, style: tIn })),
+      React.createElement("label", { style: lbl }, "Waga rano", React.createElement("input", { inputMode: "decimal", placeholder: "kg", value: weight, onChange: (e) => { setWeight(e.target.value.replace(",", ".").replace(/[^0-9.]/g, "")); setOk(false); }, style: tIn }))),
+    dur != null && React.createElement("div", { style: { marginTop: 9, fontSize: 13.5, fontWeight: 700, color: dur >= 420 ? "var(--green2)" : dur >= 360 ? "var(--amber)" : "var(--red)" } }, `\u{1F634} Sen: ${Math.floor(dur / 60)} h ${pad(dur % 60)} min${dur >= 420 ? "" : " \u2014 poni\u017Cej 7 h"}`),
+    React.createElement("button", { onClick: save, style: { ...btnPrimary, width: "100%", marginTop: 10, background: ok ? "rgba(34,197,94,.15)" : void 0, color: ok ? "var(--green2)" : void 0, border: ok ? "1px solid rgba(34,197,94,.45)" : void 0 } }, ok ? "\u2713 Zapisano" : "Zapisz sen i wag\u0119"));
+}
 const SHIFT_MINI = { Ranka: ["\u{1F305} Ranka", "var(--gold2)"], "Popo\u0142udnie": ["\u{1F307} Popo", "#e87c1e"], Nocka: ["\u{1F319} Nocka", "#a78bfa"], Wolne: ["Wolne", "var(--faint)"] };
 const DIET_DOC_URL = "https://claude.ai/artifact/FvAEQoVLGQeVdZw98wFv96";
 const mealHint = (title, mid, sh) => {
@@ -4487,7 +4517,7 @@ function MealPlan({ daily, setDayFor, diet, setDiet }) {
       background: on ? "rgba(245,181,61,.12)" : "var(--surface)",
       color: k === tk ? "var(--gold2)" : "var(--text)"
     } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800 } }, WEEK_PL[i]), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--muted)" } }, parseInt(k.slice(8))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, fontWeight: 800, marginTop: 2, color: SHIFT_MINI[dayShift(lsJSON("mp_events_v1", []), k)][1] } }, SHIFT_MINI[dayShift(lsJSON("mp_events_v1", []), k)][0]), /* @__PURE__ */ React.createElement("div", { style: { width: 6, height: 6, borderRadius: 9, margin: "3px auto 0", background: full ? "var(--green)" : some ? "var(--amber)" : "var(--line2)" } }));
-  })), /* @__PURE__ */ React.createElement("button", { onClick: () => setOff(off + 1), style: { ...iconBtn, width: 34, height: 34 } }, /* @__PURE__ */ React.createElement(ChevronRight, { size: 16 }))), /* @__PURE__ */ React.createElement(MealTimes, { k: selKey, daily }), /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 12 }, pad: 12 }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 700, fontSize: 15, marginBottom: 10 } }, WEEK_FULL[weekdayIdx(selKey)], " ", selKey === tk ? "\xB7 dzi\u015B" : ""), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 } }, /* @__PURE__ */ React.createElement("label", { style: { fontSize: 11, color: "var(--muted)" } }, "Pobudka", /* @__PURE__ */ React.createElement("input", { type: "time", value: mp.wake || "", onChange: (e) => setField("wake", e.target.value), style: { ...tInput, marginTop: 4 } })), /* @__PURE__ */ React.createElement("label", { style: { fontSize: 11, color: "var(--muted)" } }, "Sen", /* @__PURE__ */ React.createElement("input", { type: "time", value: mp.sleep || "", onChange: (e) => setField("sleep", e.target.value), style: { ...tInput, marginTop: 4 } })), /* @__PURE__ */ React.createElement("label", { style: { fontSize: 11, color: "var(--muted)" } }, "Waga rano", /* @__PURE__ */ React.createElement("input", { inputMode: "decimal", placeholder: "kg", value: mp.weight || "", onChange: (e) => setField("weight", e.target.value.replace(",", ".").replace(/[^0-9.]/g, "")), style: { ...tInput, marginTop: 4 } })))), ev.meals.map((m) => {
+  })), /* @__PURE__ */ React.createElement("button", { onClick: () => setOff(off + 1), style: { ...iconBtn, width: 34, height: 34 } }, /* @__PURE__ */ React.createElement(ChevronRight, { size: 16 }))), /* @__PURE__ */ React.createElement(MealTimes, { k: selKey, daily }), /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 12 }, pad: 12 }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 700, fontSize: 15, marginBottom: 10 } }, WEEK_FULL[weekdayIdx(selKey)], " ", selKey === tk ? "\xB7 dzi\u015B" : ""), /* @__PURE__ */ React.createElement(SleepLog, { key: selKey, mp, onSave: (v) => patch((p) => ({ ...p, ...v })) })), ev.meals.map((m) => {
     const st = mp[m.id] || {};
     const s = ev.mealSums[m.id];
     return /* @__PURE__ */ React.createElement(Card, { key: m.id, style: { marginTop: 10, border: st.done ? "1px solid rgba(34,197,94,.45)" : void 0 }, pad: 13 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { onClick: () => toggleMeal(m), style: { cursor: "pointer", paddingTop: 2 } }, /* @__PURE__ */ React.createElement(CheckBox, { on: !!st.done })), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 }, onClick: () => toggleMeal(m) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14.5, fontWeight: 800, cursor: "pointer" } }, m.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)", marginTop: 2 } }, m.hint)), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 800, fontSize: 15 } }, Math.round(s.kcal)), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--muted)" } }, "B ", Math.round(s.p), " \xB7 T ", Math.round(s.f), " \xB7 W ", Math.round(s.c)))), st.done && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 8, fontSize: 12, color: "var(--muted)" } }, "Zjedzone o ", /* @__PURE__ */ React.createElement("input", { type: "time", value: st.t || "", onChange: (e) => setMealT(m, e.target.value), style: { ...tInput, width: 96, padding: "5px 6px", fontSize: 13 } })), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, borderTop: "1px solid var(--line)" } }, m.items.map(([k, g]) => {
