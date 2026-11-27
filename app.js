@@ -4433,6 +4433,42 @@ function SleepLog({ mp, onSave }) {
     dur != null && React.createElement("div", { style: { marginTop: 9, fontSize: 13.5, fontWeight: 700, color: dur >= 420 ? "var(--green2)" : dur >= 360 ? "var(--amber)" : "var(--red)" } }, `\u{1F634} Sen: ${Math.floor(dur / 60)} h ${pad(dur % 60)} min${dur >= 420 ? "" : " \u2014 poni\u017Cej 7 h"}`),
     React.createElement("button", { onClick: save, style: { ...btnPrimary, width: "100%", marginTop: 10, background: ok ? "rgba(34,197,94,.15)" : void 0, color: ok ? "var(--green2)" : void 0, border: ok ? "1px solid rgba(34,197,94,.45)" : void 0 } }, ok ? "\u2713 Zapisano" : "Zapisz sen i wag\u0119"));
 }
+// Dieta Karoliny (ciąża) — z boku, rozwijana; do gotowania, kiedy jest czas
+const KAR_MEALS = [
+  ["\u{1F41F} \u0141oso\u015B z piekarnika + kasza + broku\u0142", "omega-3 (DHA) dla m\u00F3zgu dziecka, \u017Celazo, foliany \u2014 1\u20132\u00D7 w tygodniu"],
+  ["\u{1F969} Wo\u0142owina duszona (gulasz, bolognese) + makaron pe\u0142noziarnisty + sa\u0142atka z papryk\u0105", "\u017Celazo + witamina C z papryki = lepsze wch\u0142anianie"],
+  ["\u{1F95A} Omlet / jajka na twardo + szpinak + chleb \u017Cytni", "cholina (m\u00F3zg i rdze\u0144 dziecka), jajka zawsze ze \u015Bci\u0119tym \u017C\u00F3\u0142tkiem"],
+  ["\u{1F357} Kurczak curry z soczewic\u0105 + ry\u017C", "bia\u0142ko, \u017Celazo, b\u0142onnik na zaparcia"],
+  ["\u{1F963} Owsianka na mleku + jogurt + owoce jagodowe + orzechy", "wap\u0144, b\u0142onnik, energia na rano \u2014 dobra na md\u0142o\u015Bci"],
+  ["\u{1F372} Ros\u00F3\u0142 / zupa krem z warzyw z kurczakiem", "lekko, du\u017Co p\u0142yn\u00F3w, gdy brak apetytu"]
+];
+function KarolinaDiet() {
+  const [open, setOpen] = useState(false);
+  const li = (t) => React.createElement("div", { style: { fontSize: 13, lineHeight: 1.5, padding: "3px 0", color: "var(--text)" } }, "\u2022 ", t);
+  const h = (t) => React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: ".06em", margin: "12px 0 4px" } }, t);
+  return React.createElement(Card, { style: { marginTop: 10, border: "1px solid rgba(236,72,153,.3)" }, pad: 12 },
+    React.createElement("div", { onClick: () => setOpen(!open), style: { display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" } },
+      React.createElement("div", { style: { fontSize: 14, fontWeight: 800 } }, "\u{1F930} Dieta Karoliny \u2014 co jej ugotowa\u0107"),
+      React.createElement("div", { style: { fontSize: 12, color: "var(--muted)" } }, open ? "zwi\u0144 \u25B2" : "rozwi\u0144 \u25BC")),
+    open && React.createElement("div", null,
+      h("Do ugotowania, gdy masz czas"),
+      KAR_MEALS.map(([t, why]) => React.createElement("div", { key: t, style: { padding: "6px 0", borderTop: "1px solid var(--line)" } }, React.createElement("div", { style: { fontSize: 13.5, fontWeight: 700 } }, t), React.createElement("div", { style: { fontSize: 12, color: "var(--muted)", marginTop: 1 } }, why))),
+      h("Codziennie"),
+      li("Bia\u0142ko w ka\u017Cdym posi\u0142ku: dobrze wypieczone mi\u0119so, jajka, ryby, nabia\u0142 pasteryzowany, str\u0105czki"),
+      li("Ma\u0142e posi\u0142ki co ok. 3 h \u2014 mniej md\u0142o\u015Bci, r\u00F3wna energia"),
+      li("Warzywa, owoce, pe\u0142ne ziarno; du\u017Co wody"),
+      h("Suplementy (ustal z po\u0142o\u017Cn\u0105)"),
+      li("Kwas foliowy 400 \u00B5g dziennie do 12. tygodnia"),
+      li("Witamina D 10 \u00B5g dziennie (pa\u017Adziernik\u2013marzec)"),
+      li("Multiwitamina tylko bez witaminy A (retinolu); \u017Celazo tylko na zalecenie"),
+      h("Nie gotuj jej / unikaj"),
+      li("Surowego i krwistego mi\u0119sa, tatara, surowych w\u0119dlin"),
+      li("P\u0142ynnych \u017C\u00F3\u0142tek, nieopasteryzowanego mleka i ser\u00F3w, ser\u00F3w ple\u015Bniowych"),
+      li("W\u0105tr\u00F3bki i pasztet\u00F3w (za du\u017Co witaminy A)"),
+      li("Rekina, miecznika, marlina; tu\u0144czyk z umiarem"),
+      li("Alkoholu wcale; kofeina max ok. 200 mg/dzie\u0144 (2 kubki kawy)"),
+      React.createElement("a", { href: DIET_DOC_URL, target: "_blank", rel: "noopener", style: { display: "block", marginTop: 10, fontSize: 12.5, color: "var(--gold2)", fontWeight: 700 } }, "Pe\u0142na wersja ze \u017Ar\u00F3d\u0142ami (NHS) \u2192")));
+}
 const SHIFT_MINI = { Ranka: ["\u{1F305} Ranka", "var(--gold2)"], "Popo\u0142udnie": ["\u{1F307} Popo", "#e87c1e"], Nocka: ["\u{1F319} Nocka", "#a78bfa"], Wolne: ["Wolne", "var(--faint)"] };
 const DIET_DOC_URL = "https://claude.ai/artifact/FvAEQoVLGQeVdZw98wFv96";
 const mealHint = (title, mid, sh) => {
@@ -4517,7 +4553,7 @@ function MealPlan({ daily, setDayFor, diet, setDiet }) {
       background: on ? "rgba(245,181,61,.12)" : "var(--surface)",
       color: k === tk ? "var(--gold2)" : "var(--text)"
     } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800 } }, WEEK_PL[i]), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: "var(--muted)" } }, parseInt(k.slice(8))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 9.5, fontWeight: 800, marginTop: 2, color: SHIFT_MINI[dayShift(lsJSON("mp_events_v1", []), k)][1] } }, SHIFT_MINI[dayShift(lsJSON("mp_events_v1", []), k)][0]), /* @__PURE__ */ React.createElement("div", { style: { width: 6, height: 6, borderRadius: 9, margin: "3px auto 0", background: full ? "var(--green)" : some ? "var(--amber)" : "var(--line2)" } }));
-  })), /* @__PURE__ */ React.createElement("button", { onClick: () => setOff(off + 1), style: { ...iconBtn, width: 34, height: 34 } }, /* @__PURE__ */ React.createElement(ChevronRight, { size: 16 }))), /* @__PURE__ */ React.createElement(MealTimes, { k: selKey, daily }), /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 12 }, pad: 12 }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 700, fontSize: 15, marginBottom: 10 } }, WEEK_FULL[weekdayIdx(selKey)], " ", selKey === tk ? "\xB7 dzi\u015B" : ""), /* @__PURE__ */ React.createElement(SleepLog, { key: selKey, mp, onSave: (v) => patch((p) => ({ ...p, ...v })) })), ev.meals.map((m) => {
+  })), /* @__PURE__ */ React.createElement("button", { onClick: () => setOff(off + 1), style: { ...iconBtn, width: 34, height: 34 } }, /* @__PURE__ */ React.createElement(ChevronRight, { size: 16 }))), /* @__PURE__ */ React.createElement(MealTimes, { k: selKey, daily }), /* @__PURE__ */ React.createElement(KarolinaDiet, null), /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 12 }, pad: 12 }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 700, fontSize: 15, marginBottom: 10 } }, WEEK_FULL[weekdayIdx(selKey)], " ", selKey === tk ? "\xB7 dzi\u015B" : ""), /* @__PURE__ */ React.createElement(SleepLog, { key: selKey, mp, onSave: (v) => patch((p) => ({ ...p, ...v })) })), ev.meals.map((m) => {
     const st = mp[m.id] || {};
     const s = ev.mealSums[m.id];
     return /* @__PURE__ */ React.createElement(Card, { key: m.id, style: { marginTop: 10, border: st.done ? "1px solid rgba(34,197,94,.45)" : void 0 }, pad: 13 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", gap: 10 } }, /* @__PURE__ */ React.createElement("div", { onClick: () => toggleMeal(m), style: { cursor: "pointer", paddingTop: 2 } }, /* @__PURE__ */ React.createElement(CheckBox, { on: !!st.done })), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 }, onClick: () => toggleMeal(m) }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 14.5, fontWeight: 800, cursor: "pointer" } }, m.name), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, color: "var(--muted)", marginTop: 2 } }, m.hint)), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "var(--display)", fontWeight: 800, fontSize: 15 } }, Math.round(s.kcal)), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10.5, color: "var(--muted)" } }, "B ", Math.round(s.p), " \xB7 T ", Math.round(s.f), " \xB7 W ", Math.round(s.c)))), st.done && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 8, fontSize: 12, color: "var(--muted)" } }, "Zjedzone o ", /* @__PURE__ */ React.createElement("input", { type: "time", value: st.t || "", onChange: (e) => setMealT(m, e.target.value), style: { ...tInput, width: 96, padding: "5px 6px", fontSize: 13 } })), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, borderTop: "1px solid var(--line)" } }, m.items.map(([k, g]) => {
