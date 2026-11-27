@@ -192,7 +192,7 @@ const SEED_SUPPS = [
     { id: "s_mag", name: "Magnez (glicynian)", dose: "400 mg", when: "Wieczór" },
     { id: "s_ashwa", name: "Ashwagandha KSM-66", dose: "600 mg", when: "Wieczór" },
 ];
-const SYNC_KEYS = ["mp_profile_v1", "mp_habits_v1", "mp_supps_v1", "mp_daily_v4", "mp_tasks_v1", "mp_finance_v1", "mp_events_v1", "mp_diet_v1", "mp_shopping_v1", "mp_saas_v1", "mp_measures_v1", "mp_books_v1", "mp_prs_v1", "mp_review_v1", "mp_medi_v1", "mp_voice_v1", "mp_blood_v1", "mp_charisma_v1", "mp_journal_v1", "mp_bizplan_v1", "mp_trades_v1", "mp_rest_v1", "mp_gate_v1", "mp_fav_v1", "mp_hub_v1", "mp_alarms_v1", "mp_goal_v1", "mp_dgrep_v1"];
+const SYNC_KEYS = ["mp_profile_v1", "mp_habits_v1", "mp_supps_v1", "mp_daily_v4", "mp_tasks_v1", "mp_finance_v1", "mp_events_v1", "mp_diet_v1", "mp_shopping_v1", "mp_saas_v1", "mp_measures_v1", "mp_books_v1", "mp_prs_v1", "mp_review_v1", "mp_medi_v1", "mp_voice_v1", "mp_blood_v1", "mp_charisma_v1", "mp_journal_v1", "mp_bizplan_v1", "mp_trades_v1", "mp_rest_v1", "mp_gate_v1", "mp_fav_v1", "mp_hub_v1", "mp_alarms_v1", "mp_goal_v1", "mp_dgrep_v1", "mp_selfrep_v1"];
 const SB_DEFAULT = { url: "https://rizfgnnlfdfigfyyrgon.supabase.co", key: "sb_publishable__iRIS60Qm_T3ncPD9ysKqA_7j70abEf" };
 const sbNormUrl = (u) => {
   u = String(u || "").trim().replace(/^["']|["']$/g, "");
@@ -1472,7 +1472,7 @@ export default function App() {
     useEffect(() => {
         if (!ready)
             return;
-        const map = { mp_profile_v1: setProfile, mp_habits_v1: setHabits, mp_supps_v1: setSupps, mp_daily_v4: setDaily, mp_tasks_v1: setTasks, mp_finance_v1: setFinance, mp_events_v1: setEvents, mp_diet_v1: (v) => setDiet({ ...SEED_DIET, ...v }), mp_shopping_v1: setShopping, mp_saas_v1: setSaasData, mp_measures_v1: setMeasures, mp_books_v1: setBooks, mp_prs_v1: setPrs, mp_review_v1: setWeekFocus, mp_medi_v1: setMedi, mp_voice_v1: setVoiceLog, mp_blood_v1: setBloodLog, mp_charisma_v1: setCharisma, mp_journal_v1: setJournal, mp_bizplan_v1: setBizplan, mp_trades_v1: (v) => setTrades({ ...SEED_TRADES, ...v }), mp_rest_v1: (v) => restStore.replace(v), mp_gate_v1: (v) => gateStore.replace(v), mp_fav_v1: (v) => favStore.replace(v), mp_goal_v1: (v) => goalStore.replace(v), mp_hub_v1: (v) => hubStore.replace(v), mp_alarms_v1: (v) => setAlarms(v), mp_dgrep_v1: (v) => repStore.replace(v) };
+        const map = { mp_profile_v1: setProfile, mp_habits_v1: setHabits, mp_supps_v1: setSupps, mp_daily_v4: setDaily, mp_tasks_v1: setTasks, mp_finance_v1: setFinance, mp_events_v1: setEvents, mp_diet_v1: (v) => setDiet({ ...SEED_DIET, ...v }), mp_shopping_v1: setShopping, mp_saas_v1: setSaasData, mp_measures_v1: setMeasures, mp_books_v1: setBooks, mp_prs_v1: setPrs, mp_review_v1: setWeekFocus, mp_medi_v1: setMedi, mp_voice_v1: setVoiceLog, mp_blood_v1: setBloodLog, mp_charisma_v1: setCharisma, mp_journal_v1: setJournal, mp_bizplan_v1: setBizplan, mp_trades_v1: (v) => setTrades({ ...SEED_TRADES, ...v }), mp_rest_v1: (v) => restStore.replace(v), mp_gate_v1: (v) => gateStore.replace(v), mp_fav_v1: (v) => favStore.replace(v), mp_goal_v1: (v) => goalStore.replace(v), mp_hub_v1: (v) => hubStore.replace(v), mp_alarms_v1: (v) => setAlarms(v), mp_dgrep_v1: (v) => repStore.replace(v), mp_selfrep_v1: (v) => selfStore.replace(v) };
         sync.onRemote = (k, v) => { if (v != null && map[k]) map[k](v); };
         sync.init();
     }, [ready]);
@@ -1967,8 +1967,20 @@ function dayItems(events, tasks, k, daily) {
     if (sh === "Wolne" && shNext === "Ranka") out.push({ kind: "block", t0: hm2m(bo.prep && bo.prep.at || "17:00"), t1: hm2m(bo.prep && bo.prep.at || "17:00") + 75, title: "\u{1F373} Meal prep na 3 dni: mi\u0119so/ryba + warzywa do pude\u0142ek (75 min)", bid: "prep" });
     if (sh === "Popo\u0142udnie" && shPrev === "Ranka") out.push({ kind: "block", t0: hm2m(bo.prep && bo.prep.at || "12:05"), t1: hm2m(bo.prep && bo.prep.at || "12:05") + 60, title: "\u{1F373} Meal prep na 3 dni (60 min)", bid: "prep" });
   }
+  // Główny raport dnia (28.11.2026): ostatnie zadanie przed rutyną wieczorną; godziny na :15/:45 (wtedy chodzi zaplanowane zadanie).
+  let repT0 = null;
+  if (!(bo.rep === "skip")) {
+    if (bo.rep && bo.rep.at) repT0 = hm2m(bo.rep.at);
+    else if (sh === "Nocka") repT0 = 21 * 60 + 45;
+    else if (sh === "Popo\u0142udnie") repT0 = 23 * 60 + 40;
+    else if (sp.routine != null) { const lim = sp.routine - 20; repT0 = Math.floor((lim - 15) / 30) * 30 + 15; }
+    if (repT0 != null) {
+      const rmin = bo.rep && bo.rep.min ? +bo.rep.min : sh === "Popo\u0142udnie" ? 15 : 25;
+      out.push({ kind: "block", t0: repT0, t1: repT0 + rmin, title: `\u{1F4CB} Raport dnia: przeczytaj + zdaj w\u0142asny (\u{1FA9E}) (${rmin} min)`, bid: "rep" });
+    }
+  }
   if (shNext === "Ranka" && !(sh === "Wolne") && sp.routine != null && !(bo.pack === "skip")) {
-    const t0 = hm2m(bo.pack && bo.pack.at) ?? sp.routine - 20;
+    const t0 = hm2m(bo.pack && bo.pack.at) ?? (repT0 != null ? repT0 - 15 : sp.routine - 20);
     out.push({ kind: "block", t0, t1: t0 + 15, title: "\u{1F371} Spakuj na jutro: pude\u0142ko na d\u0142ug\u0105 przerw\u0119 + 2 przek\u0105ski (15 min)", bid: "pack" });
   }
   const planKey = sh === "Nocka" && shPrev === "Nocka" ? "Nocka2" : sh === "Wolne" && shPrev === "Nocka" ? "PoNocce" : sh;
@@ -1986,6 +1998,7 @@ function dayItems(events, tasks, k, daily) {
     const t0 = o && o.at ? hm2m(o.at) : blockStart(st, sp);
     if (t0 == null) return;
     if (o && o.min) min = +o.min;
+    if (id === "kar" && repT0 != null && t0 < repT0 && t0 + min > repT0) min = repT0 - t0;
     out.push({ kind: "block", t0, t1: t0 + min, title: `${title} (${min} min)`, bid: id, moved: !!(o && o.at), par: !!par });
   });
   (events || []).filter((e) => e.date === k && e.time && !/Ranka|Popołudnie|Nocka/.test(e.title || "")).forEach((e) => {
@@ -2052,6 +2065,8 @@ function DayAgendaCard({ events, setEvents, tasks, setTasks, day, setDay, setTab
   const [k, setK] = useState(todayKey());
   const [addOpen, setAddOpen] = useState(false);
   const [rOpen, setROpen] = useState(null);
+  const [selfOpen, setSelfOpen] = useState(false);
+  const selfAll = useSelfRep();
   const isToday = k === todayKey();
   const items = dayItems(events, tasks, k, daily);
   const sp = sleepPlan(events, k, null, daily);
@@ -2112,13 +2127,13 @@ function DayAgendaCard({ events, setEvents, tasks, setTasks, day, setDay, setTab
   const dName = (kk) => (/* @__PURE__ */ new Date(kk + "T12:00:00")).toLocaleDateString("pl-PL", { weekday: "short", day: "numeric", month: "short" });
   const upcoming = (events || []).filter((e) => e.date > k && e.date <= addDays(k, 7) && !/Ranka|Popołudnie|Nocka/.test(e.title || "")).sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || ""))).slice(0, 5);
   const col = (i) => i.kind === "block" ? "#38bdf8" : i.kind === "meal" ? "#84cc16" : i.kind === "shift" ? "#e87c1e" : i.kind === "event" ? i.ev.color || "#a78bfa" : i.kind === "task" ? "var(--gold)" : i.kind === "sleep" || i.kind === "bed" ? "#6366f1" : "var(--green2)";
-  return /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 14, border: "1px solid rgba(245,181,61,.4)" }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setK(addDays(k, -1)), style: { ...iconBtn, width: 28, height: 28, fontSize: 13 } }, "\u2039"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, letterSpacing: ".08em", color: "var(--gold2)", textTransform: "uppercase" } }, "\u{1F4C5} ", isToday ? "Dzi\u015B" : dName(k), " \xB7 ", sp.s0), /* @__PURE__ */ React.createElement("button", { onClick: () => setK(addDays(k, 1)), style: { ...iconBtn, width: 28, height: 28, fontSize: 13 } }, "\u203A")), /* @__PURE__ */ React.createElement("button", { onClick: () => setAddOpen(true), style: { background: "var(--gold)", color: "#1a1200", border: "none", borderRadius: 10, padding: "6px 10px", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, "+ Wydarzenie")), isToday && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, padding: "10px 12px", borderRadius: 12, background: "rgba(99,102,241,.10)", border: "1px solid rgba(99,102,241,.35)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, lineHeight: 1.45 } }, /* @__PURE__ */ React.createElement("div", null, "\u2600\uFE0F ", /* @__PURE__ */ React.createElement("b", null, "Po wstaniu:"), " ", tSl.wake != null ? `wsta\u0142e\u015B ${m2hm(tSl.wake)}` : `plan ${m2hm(sp.plannedWake)}`, " \xB7 pierwszy posi\u0142ek od ", m2hm(sp.firstMeal), sp.slept ? ` \xB7 spa\u0142e\u015B ${sp.slept.toFixed(1)} h` : ""), /* @__PURE__ */ React.createElement("div", null, "\u{1F319} ", /* @__PURE__ */ React.createElement("b", null, "Przed snem:"), " ", eSl.bed != null ? `po\u0142o\u017Cy\u0142e\u015B si\u0119 ${m2hm(eSl.bed)}` : eSl.eve != null ? `czytasz od ${m2hm(eSl.eve)} \u2192 za\u015Bniesz ok. ${m2hm(spEve.bed)}` : spEve.routine != null ? `od\u0142\xF3\u017C telefon o ${m2hm(spEve.routine)} \u2192 sen ${m2hm(spEve.bed)}` : "dzi\u015B nocka \u2014 sen po powrocie", spEve.lastMeal != null && eSl.bed == null && eSl.eve == null ? ` \xB7 jedzenie do ${m2hm(spEve.lastMeal)}` : ""), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--faint)", marginTop: 2 } }, spEve.buf ? `w tym +${spEve.buf} min na za\u015Bni\u0119cie \xB7 ` : "szybkie zasypianie wy\u0107wiczone \xB7 ", /* @__PURE__ */ React.createElement("span", { onClick: () => setProfile && setProfile((p) => ({ ...p, fastSleep: !p.fastSleep })), style: { textDecoration: "underline", cursor: "pointer" } }, spEve.buf ? "zasypiam szybko" : "przywr\xF3\u0107 +20 min"))), tSl.wake == null && hNow >= 4 && hNow < 16 && !((((daily || {})[addDays(todayKey(), -1)] || {}).sl || {}).bed != null && nowMin() < (((daily || {})[addDays(todayKey(), -1)] || {}).sl || {}).bed + 60) ? /* @__PURE__ */ React.createElement("button", { onClick: () => setSl(todayKey(), { wake: nowMin() }), style: { flexShrink: 0, padding: "9px 11px", borderRadius: 11, border: "none", background: "var(--gold)", color: "#1a1200", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "\u2600\uFE0F Wsta\u0142em") : eSl.eve == null && (hNow >= 17 || hNow < 5 || spEve.s0 === "Nocka") ? /* @__PURE__ */ React.createElement("button", { onClick: () => setSl(ek, { eve: nowMin() }), style: { flexShrink: 0, padding: "9px 11px", borderRadius: 11, border: "none", background: "#6366f1", color: "#fff", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "\u{1F4DA} Id\u0119 czyta\u0107") : eSl.eve != null && eSl.bed == null ? /* @__PURE__ */ React.createElement("button", { onClick: () => setSl(ek, { bed: nowMin() }), style: { flexShrink: 0, padding: "9px 11px", borderRadius: 11, border: "none", background: "#4338ca", color: "#fff", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "\u{1F634} K\u0142ad\u0119 si\u0119") : null), (tSl.wake != null || eSl.eve != null) && /* @__PURE__ */ React.createElement("button", { onClick: () => {
+  return /* @__PURE__ */ React.createElement(Card, { style: { marginTop: 14, border: "1px solid rgba(245,181,61,.4)" }, pad: 14 }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement("button", { onClick: () => setK(addDays(k, -1)), style: { ...iconBtn, width: 28, height: 28, fontSize: 13 } }, "\u2039"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, letterSpacing: ".08em", color: "var(--gold2)", textTransform: "uppercase" } }, "\u{1F4C5} ", isToday ? "Dzi\u015B" : dName(k), " \xB7 ", sp.s0), /* @__PURE__ */ React.createElement("button", { onClick: () => setK(addDays(k, 1)), style: { ...iconBtn, width: 28, height: 28, fontSize: 13 } }, "\u203A")), React.createElement("div", { style: { display: "flex", gap: 6 } }, React.createElement("button", { onClick: () => setSelfOpen(true), style: { background: (selfAll[k] || {}).reply ? "rgba(35,198,111,.18)" : "var(--surface2)", color: "var(--text)", border: "1px solid var(--line2)", borderRadius: 10, padding: "6px 9px", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, "\u{1FA9E} M\u00F3j raport"), /* @__PURE__ */ React.createElement("button", { onClick: () => setAddOpen(true), style: { background: "var(--gold)", color: "#1a1200", border: "none", borderRadius: 10, padding: "6px 10px", fontWeight: 800, fontSize: 12, cursor: "pointer" } }, "+ Wydarzenie"))), selfOpen && React.createElement(SelfReportModal, { k, onClose: () => setSelfOpen(false), onSaved: () => { if (isToday && !((day.rt || {}).b || {}).rep) toggleR("b", "rep"); } }), isToday && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, padding: "10px 12px", borderRadius: 12, background: "rgba(99,102,241,.10)", border: "1px solid rgba(99,102,241,.35)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12.5, lineHeight: 1.45 } }, /* @__PURE__ */ React.createElement("div", null, "\u2600\uFE0F ", /* @__PURE__ */ React.createElement("b", null, "Po wstaniu:"), " ", tSl.wake != null ? `wsta\u0142e\u015B ${m2hm(tSl.wake)}` : `plan ${m2hm(sp.plannedWake)}`, " \xB7 pierwszy posi\u0142ek od ", m2hm(sp.firstMeal), sp.slept ? ` \xB7 spa\u0142e\u015B ${sp.slept.toFixed(1)} h` : ""), /* @__PURE__ */ React.createElement("div", null, "\u{1F319} ", /* @__PURE__ */ React.createElement("b", null, "Przed snem:"), " ", eSl.bed != null ? `po\u0142o\u017Cy\u0142e\u015B si\u0119 ${m2hm(eSl.bed)}` : eSl.eve != null ? `czytasz od ${m2hm(eSl.eve)} \u2192 za\u015Bniesz ok. ${m2hm(spEve.bed)}` : spEve.routine != null ? `od\u0142\xF3\u017C telefon o ${m2hm(spEve.routine)} \u2192 sen ${m2hm(spEve.bed)}` : "dzi\u015B nocka \u2014 sen po powrocie", spEve.lastMeal != null && eSl.bed == null && eSl.eve == null ? ` \xB7 jedzenie do ${m2hm(spEve.lastMeal)}` : ""), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: "var(--faint)", marginTop: 2 } }, spEve.buf ? `w tym +${spEve.buf} min na za\u015Bni\u0119cie \xB7 ` : "szybkie zasypianie wy\u0107wiczone \xB7 ", /* @__PURE__ */ React.createElement("span", { onClick: () => setProfile && setProfile((p) => ({ ...p, fastSleep: !p.fastSleep })), style: { textDecoration: "underline", cursor: "pointer" } }, spEve.buf ? "zasypiam szybko" : "przywr\xF3\u0107 +20 min"))), tSl.wake == null && hNow >= 4 && hNow < 16 && !((((daily || {})[addDays(todayKey(), -1)] || {}).sl || {}).bed != null && nowMin() < (((daily || {})[addDays(todayKey(), -1)] || {}).sl || {}).bed + 60) ? /* @__PURE__ */ React.createElement("button", { onClick: () => setSl(todayKey(), { wake: nowMin() }), style: { flexShrink: 0, padding: "9px 11px", borderRadius: 11, border: "none", background: "var(--gold)", color: "#1a1200", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "\u2600\uFE0F Wsta\u0142em") : eSl.eve == null && (hNow >= 17 || hNow < 5 || spEve.s0 === "Nocka") ? /* @__PURE__ */ React.createElement("button", { onClick: () => setSl(ek, { eve: nowMin() }), style: { flexShrink: 0, padding: "9px 11px", borderRadius: 11, border: "none", background: "#6366f1", color: "#fff", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "\u{1F4DA} Id\u0119 czyta\u0107") : eSl.eve != null && eSl.bed == null ? /* @__PURE__ */ React.createElement("button", { onClick: () => setSl(ek, { bed: nowMin() }), style: { flexShrink: 0, padding: "9px 11px", borderRadius: 11, border: "none", background: "#4338ca", color: "#fff", fontWeight: 800, fontSize: 12.5, cursor: "pointer" } }, "\u{1F634} K\u0142ad\u0119 si\u0119") : null), (tSl.wake != null || eSl.eve != null) && /* @__PURE__ */ React.createElement("button", { onClick: () => {
     if (eSl.eve != null) setSl(ek, { eve: null, bed: null });
     else setSl(todayKey(), { wake: null });
   }, style: { marginTop: 4, background: "none", border: "none", color: "var(--faint)", fontSize: 11, cursor: "pointer", padding: 0 } }, "\u21BA cofnij ostatnie")), conflicts.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, padding: "9px 11px", borderRadius: 11, background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.4)", fontSize: 12.5, lineHeight: 1.45 } }, "\u26A0\uFE0F ", /* @__PURE__ */ React.createElement("b", null, "Niewykonalne w tych godzinach:"), " ", conflicts.map((c) => `${c.title.replace(/\s*\(\d+\s*min\)/, "")} \u2194 ${String(c.conf[0]).replace(/\s*\(\d+\s*min\)/, "")}`).join("; "), ". Przesu\u0144 jedno z nich."), allDay.map((e) => /* @__PURE__ */ React.createElement("div", { key: e.id, style: { marginTop: 8, fontSize: 12.5, padding: "6px 9px", borderRadius: 9, background: "var(--surface2)", borderLeft: `3px solid ${e.color || "var(--gold)"}` } }, "\u{1F4CC} ", e.title, e.note ? ` \xB7 ${e.note}` : "")), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8 } }, items.map((i, idx) => {
     const past = isToday && i.t1 < nowM && i.kind !== "bed";
     const done = i.kind === "meal" ? !!i.done : i.kind === "block" ? !!(rt.b || {})[i.bid] : i.kind === "task" ? i.task.done : i.kind === "rout" ? (i.r === "m" ? sp.mShort ? ROUT_M.filter((x) => ROUT_M_SHORT.includes(x.id)) : ROUT_M : ROUT_E).every((x) => (rt[i.r] || {})[x.id]) : false;
-    return /* @__PURE__ */ React.createElement("div", { key: idx, onClick: () => i.kind === "meal" && i.mid ? toggleMeal(i.mid) : i.kind === "task" ? toggleT(i.task.id) : i.kind === "block" ? toggleR("b", i.bid) : i.kind === "rout" ? setROpen(rOpen === i.r ? null : i.r) : null, style: { display: "flex", gap: 10, padding: "8px 0", borderTop: "1px solid var(--line)", cursor: i.kind === "task" || i.kind === "rout" || i.kind === "block" || i.kind === "meal" ? "pointer" : "default", opacity: past && !i.conf.length ? 0.55 : 1 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 44, fontSize: 12, fontWeight: 800, color: "var(--muted)", fontVariantNumeric: "tabular-nums", paddingTop: 1 } }, m2hm(i.t0)), /* @__PURE__ */ React.createElement("div", { style: { width: 3, borderRadius: 3, background: col(i), flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13.5, fontWeight: i.kind === "shift" || i.kind === "event" ? 700 : 500, textDecoration: done ? "line-through" : "none", color: done ? "var(--muted)" : "var(--text)" } }, (i.kind === "task" || i.kind === "rout" || i.kind === "block" || i.kind === "meal" && i.mid) && /* @__PURE__ */ React.createElement("span", { style: { marginRight: 6 } }, done ? "\u2611\uFE0F" : "\u2B1C"), i.title), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: i.conf.length ? "var(--red)" : "var(--faint)" } }, i.kind === "bed" ? sp.hours ? `ok. ${sp.hours.toFixed(1)} h snu` : "" : i.kind === "meal" ? `${m2hm(i.t0)} \xB7 odhacza si\u0119 te\u017C w Diecie` : `${m2hm(i.t0)}\u2013${m2hm(i.t1)}`, i.kind === "task" && i.task.by ? ` \xB7 zr\xF3b do ${i.task.by}` : "", i.par ? " \xB7 \u21B3 r\xF3wnolegle (w drodze / w pracy)" : "", i.kind === "event" && i.ev.remind >= 0 ? ` \xB7 przypomnienie ${i.ev.remind} min przed` : "", i.conf.length ? ` \xB7 koliduje: ${i.conf[0]}` : ""), i.kind === "rout" && rOpen === i.r && /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { marginTop: 6 } }, (i.r === "m" ? sp.mShort ? ROUT_M.filter((x) => ROUT_M_SHORT.includes(x.id)) : ROUT_M : ROUT_E).map((x) => /* @__PURE__ */ React.createElement("div", { key: x.id, onClick: () => toggleR(i.r, x.id), style: { display: "flex", alignItems: "center", gap: 8, padding: "5px 0", cursor: isToday ? "pointer" : "default" } }, /* @__PURE__ */ React.createElement(CheckBox, { on: !!(rt[i.r] || {})[x.id] }), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontSize: 12.5 } }, x.t), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--faint)" } }, x.m, " min")))), i.kind === "event" && /* @__PURE__ */ React.createElement("button", { onClick: (e) => {
+    return /* @__PURE__ */ React.createElement("div", { key: idx, onClick: () => i.kind === "meal" && i.mid ? toggleMeal(i.mid) : i.kind === "task" ? toggleT(i.task.id) : i.kind === "block" ? (i.bid === "rep" ? setSelfOpen(true) : toggleR("b", i.bid)) : i.kind === "rout" ? setROpen(rOpen === i.r ? null : i.r) : null, style: { display: "flex", gap: 10, padding: "8px 0", borderTop: "1px solid var(--line)", cursor: i.kind === "task" || i.kind === "rout" || i.kind === "block" || i.kind === "meal" ? "pointer" : "default", opacity: past && !i.conf.length ? 0.55 : 1 } }, /* @__PURE__ */ React.createElement("div", { style: { width: 44, fontSize: 12, fontWeight: 800, color: "var(--muted)", fontVariantNumeric: "tabular-nums", paddingTop: 1 } }, m2hm(i.t0)), /* @__PURE__ */ React.createElement("div", { style: { width: 3, borderRadius: 3, background: col(i), flexShrink: 0 } }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13.5, fontWeight: i.kind === "shift" || i.kind === "event" ? 700 : 500, textDecoration: done ? "line-through" : "none", color: done ? "var(--muted)" : "var(--text)" } }, (i.kind === "task" || i.kind === "rout" || i.kind === "block" || i.kind === "meal" && i.mid) && /* @__PURE__ */ React.createElement("span", { style: { marginRight: 6 } }, done ? "\u2611\uFE0F" : "\u2B1C"), i.title), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: i.conf.length ? "var(--red)" : "var(--faint)" } }, i.kind === "bed" ? sp.hours ? `ok. ${sp.hours.toFixed(1)} h snu` : "" : i.kind === "meal" ? `${m2hm(i.t0)} \xB7 odhacza si\u0119 te\u017C w Diecie` : `${m2hm(i.t0)}\u2013${m2hm(i.t1)}`, i.kind === "task" && i.task.by ? ` \xB7 zr\xF3b do ${i.task.by}` : "", i.par ? " \xB7 \u21B3 r\xF3wnolegle (w drodze / w pracy)" : "", i.kind === "event" && i.ev.remind >= 0 ? ` \xB7 przypomnienie ${i.ev.remind} min przed` : "", i.conf.length ? ` \xB7 koliduje: ${i.conf[0]}` : ""), i.kind === "rout" && rOpen === i.r && /* @__PURE__ */ React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { marginTop: 6 } }, (i.r === "m" ? sp.mShort ? ROUT_M.filter((x) => ROUT_M_SHORT.includes(x.id)) : ROUT_M : ROUT_E).map((x) => /* @__PURE__ */ React.createElement("div", { key: x.id, onClick: () => toggleR(i.r, x.id), style: { display: "flex", alignItems: "center", gap: 8, padding: "5px 0", cursor: isToday ? "pointer" : "default" } }, /* @__PURE__ */ React.createElement(CheckBox, { on: !!(rt[i.r] || {})[x.id] }), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, fontSize: 12.5 } }, x.t), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, color: "var(--faint)" } }, x.m, " min")))), i.kind === "event" && /* @__PURE__ */ React.createElement("button", { onClick: (e) => {
       e.stopPropagation();
       icsDownload(i.ev);
     }, style: { marginTop: 4, background: "none", border: "1px solid var(--line2)", color: "var(--muted)", borderRadius: 8, padding: "3px 8px", fontSize: 11, cursor: "pointer" } }, "\u{1F4F2} Do kalendarza iPhone")));
@@ -4882,7 +4897,62 @@ const useRep = () => {
   }, []);
   return r;
 };
-const zl = (n) => Math.round(n || 0).toLocaleString("pl-PL") + " z\u0142";
+const selfStore = {
+  v: lsJSON("mp_selfrep_v1", {}),
+  subs: /* @__PURE__ */ new Set(),
+  set(fn) {
+    const nv = typeof fn === "function" ? fn(this.v) : fn;
+    const out = {};
+    Object.keys(nv).sort().slice(-60).forEach((k) => out[k] = nv[k]);
+    this.v = out;
+    save("mp_selfrep_v1", out);
+    this.subs.forEach((f) => f(out));
+  },
+  replace(v) {
+    this.v = v || {};
+    this.subs.forEach((f) => f(this.v));
+  }
+};
+const useSelfRep = () => {
+  const [r, setR] = useState(selfStore.v);
+  useEffect(() => {
+    selfStore.subs.add(setR);
+    return () => selfStore.subs.delete(setR);
+  }, []);
+  return r;
+};
+// Własny raport dnia (28.11.2026): Wojtek zdaje raport, Claude odpowiada w ciągu ~30 min (zaplanowane zadanie czyta mp_selfrep_v1).
+const SELF_Q = [["good", "✅ Co zrobiłem dobrze"], ["happy", "\u{1F4AA} Z czego jestem zadowolony"], ["bad", "❌ Z czego nie jestem zadowolony"], ["feel", "\u{1F50B} Samopoczucie (ciało, głowa, energia)"], ["fix", "\u{1F527} Co muszę poprawić jutro"]];
+function SelfReportModal({ k, onClose, onSaved }) {
+  const all = useSelfRep();
+  const cur = all[k] || {};
+  const [f, setF] = useState({ good: cur.good || "", happy: cur.happy || "", bad: cur.bad || "", feel: cur.feel || "", fix: cur.fix || "", mood: cur.mood || 6 });
+  const saveIt = () => {
+    selfStore.set((x) => ({ ...x, [k]: { ...x[k] || {}, ...f, ts: Date.now(), answered: false } }));
+    buzz(12);
+    onSaved && onSaved();
+    onClose();
+  };
+  const ta = { ...inputStyle, width: "100%", minHeight: 58, resize: "vertical", fontFamily: "inherit", fontSize: 14, lineHeight: 1.45, marginTop: 5, boxSizing: "border-box" };
+  return React.createElement("div", { onClick: onClose, style: { position: "fixed", inset: 0, zIndex: 95, background: "rgba(0,0,0,.6)", display: "flex", justifyContent: "center", alignItems: "flex-end" } },
+    React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { width: "100%", maxWidth: 720, maxHeight: "92vh", overflowY: "auto", background: "var(--bg)", borderRadius: "18px 18px 0 0", padding: "16px 16px max(18px, env(safe-area-inset-bottom))", border: "1px solid var(--line2)" } },
+      React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
+        React.createElement("div", { style: { fontFamily: "var(--display)", fontSize: 19, fontWeight: 800 } }, "\u{1FA9E} Mój raport dnia"),
+        React.createElement("button", { onClick: onClose, style: { ...iconBtn, width: 30, height: 30 } }, "✕")),
+      React.createElement("div", { style: { fontSize: 12.5, color: "var(--muted)", marginTop: 3, lineHeight: 1.45 } }, "Accountability mirror. Bez ściemy — tylko fakty. Claude odpowie w ciągu ok. 30 min."),
+      SELF_Q.map(([id, lbl]) => React.createElement("div", { key: id, style: { marginTop: 12 } },
+        React.createElement("div", { style: { fontSize: 13, fontWeight: 700 } }, lbl),
+        id === "feel" && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 6 } },
+          React.createElement("input", { type: "range", min: 1, max: 10, value: f.mood, onChange: (e) => setF({ ...f, mood: +e.target.value }), style: { flex: 1 } }),
+          React.createElement("b", { style: { fontSize: 16, minWidth: 40, textAlign: "right" } }, f.mood, "/10")),
+        React.createElement("textarea", { value: f[id], onChange: (e) => setF({ ...f, [id]: e.target.value }), style: ta }))),
+      React.createElement("button", { onClick: saveIt, style: { ...btnPrimary, marginTop: 16 } }, cur.ts ? "Zapisz zmiany" : "Zdaj raport"),
+      cur.reply && React.createElement("div", { style: { marginTop: 16, padding: 12, borderRadius: 12, background: "rgba(245,181,61,.10)", border: "1px solid rgba(245,181,61,.4)" } },
+        React.createElement("div", { style: { fontSize: 11, fontWeight: 800, letterSpacing: ".08em", color: "var(--gold2)" } }, "ODPOWIEDŹ CLAUDE"),
+        React.createElement("div", { style: { fontSize: 13.5, lineHeight: 1.55, whiteSpace: "pre-wrap", marginTop: 5 } }, cur.reply)),
+      cur.ts && !cur.reply && React.createElement("div", { style: { marginTop: 12, fontSize: 12.5, color: "var(--muted)" } }, "⏳ Raport zdany ", new Date(cur.ts).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }), " — czekasz na odpowiedź.")));
+}
+const zl = (n) => Math.round(n || 0).toLocaleString("pl-PL") + " zł";
 const ymOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
 const endOfYm = (m) => {
   const [y, mo] = m.split("-").map(Number);
@@ -5222,7 +5292,7 @@ function DGReportHost({ S, setTab }) {
   useEffect(() => {
     const tick = () => {
       const now = /* @__PURE__ */ new Date();
-      if (now.getHours() < 20) return;
+      if (true) return; // raporty robi Claude wg zmiany (zaplanowane zadania)
       const r2 = repStore.v[todayKey()];
       if (r2 && (r2.text || r2.pending && Date.now() - r2.pending < 5 * 6e4)) return;
       if (r2 && r2.err && Date.now() - (r2.ts || 0) < 30 * 6e4) return;
