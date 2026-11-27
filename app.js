@@ -1933,6 +1933,7 @@ function dayItems(events, tasks, k, daily) {
   const out = [];
   const sh = dayShift(events, k);
   const SHIFT_LBL = { Ranka: "Ranka \xB7 wyjazd 6:15, praca 7\u201315, powr\xF3t ~15:30", "Popo\u0142udnie": "Popo\u0142udnie \xB7 wyjazd 14:15, praca 15\u201323, powr\xF3t ~23:30", Nocka: "Nocka \xB7 wyjazd 22:25, praca 23\u20137, powr\xF3t ~7:30" };
+  const shPrevM = dayShift(events, addDays(k, -1));
   if (SHIFT_WIN[sh]) out.push({ kind: "shift", t0: SHIFT_WIN[sh][0], t1: SHIFT_WIN[sh][1], title: SHIFT_LBL[sh], hard: true });
   if (dayShift(events, addDays(k, -1)) === "Nocka") out.push({ kind: "shift", t0: 0, t1: 450, title: "Nocka (cd.) \xB7 do 7:00, powr\xF3t ~7:30", hard: true });
   const sp = sleepPlan(events, k, null, daily);
@@ -1942,25 +1943,31 @@ function dayItems(events, tasks, k, daily) {
   if (sp.routine != null) out.push({ kind: "rout", t0: sp.routine, t1: sp.routine + ROUT_E_MIN, title: `\u{1F319} Przed snem \xB7 ${ROUT_E_MIN + sp.buf} min (ksi\u0105\u017Cka, prysznic, z\u0119by${sp.buf ? `, +${sp.buf} min na za\u015Bni\u0119cie` : ""})`, r: "e" });
   if (sp.bed != null) out.push({ kind: "bed", t0: sp.bed, t1: sp.bed, title: sp.hard ? "\u{1F512} Sen \u2014 nienegocjowalne" : "\u{1F6CF}\uFE0F Sen" });
   {
-    const P1 = Math.max(sp.firstMeal, 0);
-    let mt;
-    if (sh === "Ranka") mt = [Math.max(P1, 420), 690, 840];
-    else if (sh === "Popo\u0142udnie") mt = [P1, 1140, 1290];
-    else if (sh === "Nocka") mt = [P1, 1230, 1410];
+    // Posiłki (27.11.2026): 2–3 duże posiłki + koktajl, druga połowa dnia lekka.
+    // Ranka: 2 w pracy + 1 po pracy (największy) + koktajl · Popołudnie: 2 rano, 1 w pracy · Nocka: 2 przed, lekko w pracy.
+    const W = sp.plannedWake;
+    let M;
+    if (sh === "Ranka") M = [["m1", "\u{1F371} Posi\u0142ek 1 (w pracy, z pude\u0142ka)", 570, 15], ["m2", "\u{1F371} Posi\u0142ek 2 (w pracy, z pude\u0142ka)", 750, 30], ["m3", "\u{1F969} Posi\u0142ek 3 \u2014 po pracy, najwi\u0119kszy", 945, 25], ["m4", "\u{1F964} Koktajl", 1145, 5]];
+    else if (sh === "Popo\u0142udnie") M = [["m1", "\u{1F373} Posi\u0142ek 1", W + 120, 20], ["m2", "\u{1F969} Posi\u0142ek 2 \u2014 najwi\u0119kszy, przed wyjazdem", 765, 30], ["m3", "\u{1F371} Posi\u0142ek 3 (w pracy, z pude\u0142ka)", 1140, 30]];
+    else if (sh === "Nocka" && shPrevM === "Nocka") M = [["m1", "\u{1F373} Posi\u0142ek 1", W + 15, 20], ["m2", "\u{1F969} Posi\u0142ek 2 \u2014 najwi\u0119kszy, przed wyjazdem", 1230, 30], ["m3", "\u{1F964} Koktajl (lekko, w pracy)", 1410, 5]];
+    else if (sh === "Nocka") M = [["m1", "\u{1F373} Posi\u0142ek 1", W + 120, 20], ["m2", "\u{1F969} Posi\u0142ek 2 \u2014 najwi\u0119kszy", 780, 30], ["m3", "\u{1F371} Posi\u0142ek 3 przed wyjazdem", 1230, 25], ["m4", "\u{1F964} Koktajl (lekko, w pracy)", 1410, 5]];
     else {
+      const P1 = Math.max(sp.firstMeal, 0);
       const K = sp.lastMeal != null ? sp.lastMeal : P1 + 540;
-      mt = [P1, Math.round((P1 + K) / 2 / 15) * 15, K];
+      M = [["m1", "\u{1F373} Posi\u0142ek 1", P1, 20], ["m2", "\u{1F969} Posi\u0142ek 2 (najwi\u0119kszy)", Math.round((P1 + K) / 2 / 15) * 15, 30], ["m3", "\u{1F37D}\uFE0F Posi\u0142ek 3", K, 25]];
     }
     const mp = ((daily || lsJSON("mp_daily_v4", {}))[k] || {}).mplan || {};
-    const lbl = [["m1", "\u{1F373} Posi\u0142ek 1", 15], ["m2", "\u{1F969} Posi\u0142ek 2 (najwi\u0119kszy)", 30], ["m3", "\u{1F964} Koktajl", 5]];
-    lbl.forEach(([id, t, mn], i) => { const ov = hm2m((mp[id] || {}).t); if (ov != null) mt[i] = ov; }); // ręcznie ustawiona godzina posiłku wygrywa z wyliczoną
-    lbl.forEach(([id, t, mn], i) => out.push({ kind: "meal", t0: mt[i], t1: mt[i] + mn, title: t + (i === 2 && sh === "Nocka" ? " (lekko, w pracy)" : sh === "Ranka" || sh === "Popo\u0142udnie" && i > 0 ? " (w pracy)" : ""), mid: id, done: !!(mp[id] || {}).done, par: true }));
+    M.forEach(([id, t, at, mn]) => { const ov = hm2m((mp[id] || {}).t); const t0 = ov != null ? ov : at; out.push({ kind: "meal", t0, t1: t0 + mn, title: t, mid: id, done: !!(mp[id] || {}).done, par: true }); });
   }
   const bo = ((daily || lsJSON("mp_daily_v4", {}))[k] || {}).bo || {};
   const shPrev = dayShift(events, addDays(k, -1)), shNext = dayShift(events, addDays(k, 1));
   if (!(bo.prep === "skip")) {
     if (sh === "Wolne" && shNext === "Ranka") out.push({ kind: "block", t0: hm2m(bo.prep && bo.prep.at || "17:00"), t1: hm2m(bo.prep && bo.prep.at || "17:00") + 75, title: "\u{1F373} Meal prep na 3 dni: mi\u0119so/ryba + warzywa do pude\u0142ek (75 min)", bid: "prep" });
     if (sh === "Popo\u0142udnie" && shPrev === "Ranka") out.push({ kind: "block", t0: hm2m(bo.prep && bo.prep.at || "12:05"), t1: hm2m(bo.prep && bo.prep.at || "12:05") + 60, title: "\u{1F373} Meal prep na 3 dni (60 min)", bid: "prep" });
+  }
+  if (shNext === "Ranka" && !(sh === "Wolne") && sp.routine != null && !(bo.pack === "skip")) {
+    const t0 = hm2m(bo.pack && bo.pack.at) ?? sp.routine - 20;
+    out.push({ kind: "block", t0, t1: t0 + 15, title: "\u{1F371} Spakuj na jutro: 2 pude\u0142ka do pracy + koktajl (15 min)", bid: "pack" });
   }
   const planKey = sh === "Nocka" && shPrev === "Nocka" ? "Nocka2" : sh === "Wolne" && shPrev === "Nocka" ? "PoNocce" : sh;
   (BLOCK_PLAN[planKey] || []).forEach(([id, title, st, min, par]) => {
