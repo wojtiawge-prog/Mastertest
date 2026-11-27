@@ -1808,7 +1808,7 @@ const evKeyNow = () => {
   return keyOf(d);
 };
 // ── Nienegocjowalne pory snu (wg zmiany dziś i jutro). Wpis „planBed” ich nie przesuwa — dzień się skraca, nie noc.
-const HARD_SLEEP_DEF = { on: true, Ranka: { wake: "05:30" }, "Popo\u0142udnie": { wake: "04:30", wake2: "08:00", bed: "00:30" }, Wolne: { wake: "07:30", bed: "23:00" }, przedRanka: { bed: "21:30" }, poNocce: { wake: "13:00" } };
+const HARD_SLEEP_DEF = { on: true, Ranka: { wake: "05:30" }, "Popo\u0142udnie": { wake: "08:00", wake2: "08:30", bed: "00:30" }, Wolne: { wake: "07:30", bed: "23:00" }, przedRanka: { bed: "21:30" }, przedPopo: { bed: "23:00" }, poNocce: { wake: "13:00" } };
 const hardSleepCfg = () => { const p = lsJSON("mp_profile_v1", {}) || {}; const h = p.hardSleep || {}; const out = {}; Object.keys(HARD_SLEEP_DEF).forEach((k) => { out[k] = typeof HARD_SLEEP_DEF[k] === "object" ? { ...HARD_SLEEP_DEF[k], ...(h[k] || {}) } : (h[k] !== undefined ? h[k] : HARD_SLEEP_DEF[k]); }); return out; };
 const bedMin = (hm) => { const m = hm2m(hm); return m == null ? null : m < 720 ? m + 1440 : m; };
 function sleepPlan(events, k, alarms, daily) {
@@ -1820,7 +1820,7 @@ function sleepPlan(events, k, alarms, daily) {
   const hardOn = H.on !== false;
   const wakeOf = (s) => (hardOn && s !== "Nocka" && H[s] && hm2m(H[s].wake) != null ? hm2m(H[s].wake) : null) ?? hm2m((A[s] || {}).wake) ?? (s === "Ranka" ? 300 : s === "Popo\u0142udnie" ? 450 : 480);
   let wake = wakeOf(s0), bed = null, note = "", nap = null, dayNap = null;
-  // 2. dzień popołudniówki: wróciłeś ~23:30, więc nie 4:30, tylko późniejsza pobudka
+  // 2. dzień popołudniówki: wróciłeś ~23:30, więc jeszcze późniejsza pobudka
   if (hardOn && s0 === "Popo\u0142udnie" && sp === "Popo\u0142udnie" && hm2m(H["Popo\u0142udnie"].wake2) != null) wake = hm2m(H["Popo\u0142udnie"].wake2);
   if (sp === "Nocka" && s0 !== "Nocka") {
     wake = hardOn && hm2m(H.poNocce.wake) != null ? hm2m(H.poNocce.wake) : 780;
@@ -1844,7 +1844,8 @@ function sleepPlan(events, k, alarms, daily) {
   if (hardOn && s0 !== "Nocka") {
     if (s0 === "Popo\u0142udnie" && s1 === "Nocka") bed = 1500;
     else if (s0 === "Popo\u0142udnie") bed = bedMin(H["Popo\u0142udnie"].bed) ?? bed;
-    else if (s1 === "Ranka" || s1 === "Popo\u0142udnie") bed = bedMin(H.przedRanka.bed) ?? bed; // przed ranką i przed 1. popołudniówką (pobudka 4:30)
+    else if (s1 === "Ranka") bed = bedMin(H.przedRanka.bed) ?? bed; // przed ranką
+    else if (s1 === "Popo\u0142udnie") bed = bedMin(H.przedPopo.bed) ?? bed; // przed 1. popołudniówką: pobudka ~8:00, sen ~23:00
     else if (s1 === "Nocka") bed = bedMin(H["Popo\u0142udnie"].bed) ?? bed;
     else bed = bedMin(H.Wolne.bed) ?? bed;
   }
@@ -2172,7 +2173,8 @@ function HardSleepCard({ profile, setProfile, events, daily, compact }) {
       React.createElement("button", { onClick: () => setEdit((x) => !x), style: { ...iconBtn, width: "auto", padding: "0 10px", fontSize: 12.5, fontWeight: 700 } }, edit ? "Gotowe" : "Ustaw")),
     edit ? React.createElement("div", { style: { marginTop: 6 } },
       row("\u{1F305} Ranka — wstajesz", "Ranka", "wake"),
-      row("\u{1F6CF}️ Przed ranką i 1. popołudniówką — śpisz", "przedRanka", "bed"),
+      row("\u{1F6CF}️ Przed ranką — śpisz", "przedRanka", "bed"),
+      row("\u{1F6CF}️ Przed 1. popołudniówką — śpisz", "przedPopo", "bed"),
       row("\u{1F307} 1. popołudniówka — wstajesz", "Popołudnie", "wake"),
       row("\u{1F307} 2. popołudniówka — wstajesz", "Popołudnie", "wake2"),
       row("\u{1F307} Po popołudniu / przed nocką — śpisz", "Popołudnie", "bed"),
