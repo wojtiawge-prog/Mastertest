@@ -11,6 +11,7 @@ const store = {
             }
         }
         catch (e) { /* missing key throws -> treat as null */ }
+        if (mem.has(k)) return mem.get(k);
         try {
             if (typeof localStorage !== "undefined") {
                 const ls = localStorage.getItem(k);
@@ -32,6 +33,7 @@ const store = {
         try {
             if (typeof localStorage !== "undefined") {
                 localStorage.setItem(k, v);
+                mem.delete(k);
                 return;
             }
         }
@@ -214,7 +216,9 @@ create policy "mp_own" on mp_state for all
   using (auth.uid() = user_id) with check (auth.uid() = user_id);
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on table mp_state to authenticated;`;
+// Gdy localStorage jest pełny (QuotaExceeded), wartość trzymamy w pamięci — inaczej synchronizacja czytałaby starą kopię i cofała zmiany.
 const lsGet = (k) => {
+  if (mem.has(k)) return mem.get(k);
   try {
     return localStorage.getItem(k);
   } catch {
@@ -224,7 +228,23 @@ const lsGet = (k) => {
 const lsSet = (k, v) => {
   try {
     localStorage.setItem(k, v);
-  } catch {
+    mem.delete(k);
+  } catch (e) {
+    mem.set(k, v);
+    DBG.log("QUOTA " + k, null);
+  }
+};
+// Dziennik synchronizacji (diagnostyka cofających się serii) — 60 ostatnich zdarzeń, wysyłany do chmury jako mp_dbg_<urządzenie>.
+const DBG = {
+  ring: [],
+  dev: (() => { try { let d = localStorage.getItem("mp_dev"); if (!d) { d = Math.random().toString(36).slice(2, 8) + "_" + (/iPhone|iPad/.test(navigator.userAgent) ? "ios" : /Android/.test(navigator.userAgent) ? "and" : "pc"); localStorage.setItem("mp_dev", d); } return d; } catch (e) { return "x"; } })(),
+  log(ev, daily) {
+    try {
+      const d = new Date(); const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      let sets = null; if (daily) { const v = typeof daily === "string" ? JSON.parse(daily) : daily; sets = ((v || {})[k] || {}).sets || null; }
+      this.ring.push({ t: d.toTimeString().slice(0, 8), ev, sets: sets ? Object.values(sets).map((a) => a.filter(Boolean).length).join(",") : null });
+      if (this.ring.length > 60) this.ring = this.ring.slice(-60);
+    } catch (e) { }
   }
 };
 const hashStr = (s) => {
@@ -318,6 +338,7 @@ const sync = {
   // przy każdym zapisie
   touch(k, json) {
     if (!SYNC_KEYS.includes(k)) return;
+    (this.lastEdit || (this.lastEdit = {}))[k] = Date.now();
     const h = hashStr(json);
     const m = this.meta[k];
     if (m && m.h === h) return;
@@ -432,10 +453,19 @@ const sync = {
     lsSet(BASE_KEY(k), json);
     this.meta[k] = { ts, h: hashStr(json), base: ts };
     this.dirty.delete(k);
+    if (k === "mp_daily_v4") DBG.log("apply ts=" + ts + (localUsed !== undefined ? " merge" : " replace"), value);
     if (this.onRemote) this.onRemote(k, value, localUsed);
   },
   baseVal(k) {
     try { const r = lsGet(BASE_KEY(k)); return r == null ? undefined : JSON.parse(r); } catch { return undefined; }
+  },
+  dbgUp() {
+    try {
+      if (!this.cloud || !this.user || !DBG.ring.length || Date.now() - (this._dbgT || 0) < 20000) return;
+      this._dbgT = Date.now();
+      let used = 0; try { for (let i = 0; i < localStorage.length; i++) { const kk = localStorage.key(i); used += (kk.length + (localStorage.getItem(kk) || "").length) * 2; } } catch (e) { }
+      this.cloud.push([{ user_id: this.user.id, key: "mp_dbg_" + DBG.dev, value: { ver: "v100", lsKB: Math.round(used / 1024), memKeys: [...mem.keys()], ring: DBG.ring }, ts: Date.now() }]).catch(() => { });
+    } catch (e) { }
   },
   async pull() {
     if (!this.cloud || !this.user || this.busy) return;
@@ -449,6 +479,7 @@ const sync = {
         remote.add(r.key);
         const k = r.key, ts = Number(r.ts) || 0, m = this.meta[k];
         const raw = lsGet(k);
+        if (m && m.base !== undefined && raw != null && ts !== m.base && Date.now() - ((this.lastEdit || {})[k] || 0) < 5000) { this.dirty.add(k); if (k === "mp_daily_v4") DBG.log("pull: świeża zmiana lokalna — łączę przy wysyłce", null); continue; } // użytkownik właśnie klika — nie podmieniaj ekranu, połącz przy zapisie
         if (!m || m.base === undefined || raw == null) { this.applyRemote(k, r.value, ts); continue; } // pierwsza synchronizacja po aktualizacji: chmura = prawda
         if (ts === m.base) { if (m.h !== hashStr(JSON.stringify(this.baseVal(k)))) this.dirty.add(k); continue; }
         // chmura zmieniła się od naszej bazy
@@ -464,6 +495,7 @@ const sync = {
       this.saveMeta();
       this.pulled = true;
       this.last = /* @__PURE__ */ new Date();
+      this.dbgUp();
       this.busy = false;
       this.set("idle");
       if (this.dirty.size) await this.push();
@@ -494,6 +526,7 @@ const sync = {
           if (ok) {
             lsSet(BASE_KEY(k), raw);
             this.meta[k] = { ts, h: hashStr(raw), base: ts };
+            if (k === "mp_daily_v4") DBG.log("push ok ts=" + ts, raw);
             if (lsGet(k) !== raw) { this.meta[k].h = "x"; this.dirty.add(k); this.schedule(400); } // zmiana w trakcie wysyłki → wyślij jeszcze raz
             break;
           }
@@ -2862,6 +2895,7 @@ function Train({ day, setDay, daily, timer, setTimer, startTimer, prs, setPrs })
         const now = Date.now(), tk2 = ex.id + ":" + idx;
         if (lastSetTap.current.k === tk2 && now - lastSetTap.current.t < 400) return; // jedno tapnięcie odpalone dwa razy
         lastSetTap.current = { k: tk2, t: now };
+        DBG.log("tap " + tk2, null);
         buzz(8);
         setDay((c) => {
             const cs = { ...(c.sets || {}) };
