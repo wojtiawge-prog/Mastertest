@@ -1912,12 +1912,13 @@ const confOf = (k) => {
 // System dnia (27.11.2026): najtrudniejsze zaraz po starcie dnia. Godziny "wake+N" liczą się od planowanej pobudki.
 // Faza 1 (od 28.11): trening, Wim Hof, SkupOS, spacery + czas z Karoliną. Faza 2 (od 5.12): + trading i nauka, deep work +15 min.
 const BLOCK_PLAN = {
-  Wolne: [["wh", "\u{1F32C}\uFE0F Wim Hof: 3 rundy (siedz\u0105c / le\u017C\u0105c)", "wake+10", 15], ["deep", "\u{1F9E0} Deep work: SkupOS", "wake+30", 150], ["trade", "\u{1F4C8} Trading: wykresy i plan", "wake+195", 20], ["train", "\u{1F3CB}\uFE0F Trening", "wake+220", 75], ["learn", "\u{1F4DA} Nauka: sprzeda\u017C i marketing", "16:00", 30], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "16:45", 45], ["kar", "\u2764\uFE0F Wiecz\u00F3r z Karolin\u0105 \u2014 telefon odlo\u017Cony", "19:00", 120]],
+  // MÓJ WEEKEND = LOCK IN (28.11.2026): 4 wolne dni po nockach to pełne dni pracy nad biznesem — SkupOS, rynek, sesja NY na złocie, strategia. Karolina i trening zostają.
+  Wolne: [["wh", "\u{1F32C}\uFE0F Wim Hof: 3 rundy (siedz\u0105c / le\u017C\u0105c)", "wake+10", 15], ["deep", "\u{1F9E0} Deep work: SkupOS", "wake+30", 150], ["market", "\u{1F4CA} Analiza rynku: XAUUSD D1/H4, poziomy, kalendarz makro \u2192 plan na sesj\u0119 NY", "10:45", 60], ["train", "\u{1F3CB}\uFE0F Trening", "11:55", 75], ["strat", "\u265F\uFE0F Strategia biznesu: SkupOS / trading / plan 2027", "13:30", 60], ["tradeS", "\u{1F4C8} Sesja tradingowa NY (XAUUSD) \u2014 tylko setupy z planu, ryzyko w limicie", "14:30", 120], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "16:45", 45], ["sk2", "\u{1F527} SkupOS: sprzeda\u017C, marketing, poprawki z test\u00F3w", "17:45", 75], ["kar", "\u2764\uFE0F Wiecz\u00F3r z Karolin\u0105 \u2014 telefon odlo\u017Cony", "19:00", 120], ["learn", "\u{1F4D3} Dziennik tradingowy + nauka", "21:05", 40]],
   "Popo\u0142udnie": [["wh", "\u{1F32C}\uFE0F Wim Hof: 3 rundy (siedz\u0105c / le\u017C\u0105c)", "wake+10", 15], ["deep", "\u{1F9E0} Deep work: SkupOS", "wake+30", 90], ["trade", "\u{1F4C8} Trading: wykresy i plan", "wake+140", 20], ["train", "\u{1F3CB}\uFE0F Trening", "wake+165", 75], ["walk", "\u{1F6B6} Spacer + obiad z Karolin\u0105", "12:45", 45], ["learn", "\u{1F3A7} Nauka: audiobook w aucie", "14:15", 25, true]],
   Ranka: [["wh", "\u{1F32C}\uFE0F Wim Hof: 3 rundy (siedz\u0105c, nigdy za kierownic\u0105)", "wake+10", 15], ["nap", "\u{1F634} Power nap \u2014 max 20 min", "15:40", 20], ["mid", "\u{1F527} Praca \u015Brednia: testy, telefony, poprawki", "16:15", 60], ["trade", "\u{1F4C8} Trading: przegl\u0105d", "17:20", 20], ["train", "\u{1F3CB}\uFE0F Trening", "17:45", 75], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "19:10", 30]],
   Nocka: [["wh", "\u{1F32C}\uFE0F Wim Hof: 3 rundy (siedz\u0105c / le\u017C\u0105c)", "wake+10", 15], ["deep", "\u{1F9E0} Deep work: SkupOS", "wake+30", 120], ["train", "\u{1F3CB}\uFE0F Trening", "wake+165", 75], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "13:15", 45], ["trade", "\u{1F4C8} Trading: szybki przegl\u0105d", "14:15", 20], ["kar", "\u2764\uFE0F Czas z Karolin\u0105 \u2014 telefon odlo\u017Cony", "18:30", 90]],
   Nocka2: [["wh", "\u{1F32C}\uFE0F Wim Hof: 3 rundy (siedz\u0105c / le\u017C\u0105c)", "wake+10", 15], ["mid", "\u{1F527} Praca \u015Brednia: SkupOS", "wake+30", 45], ["train", "\u{1F3CB}\uFE0F Trening", "wake+80", 75], ["walk", "\u{1F6B6} Spacer z Karolin\u0105", "18:30", 40], ["kar", "\u2764\uFE0F Czas z Karolin\u0105 \u2014 telefon odlo\u017Cony", "19:15", 90]],
-  PoNocce: [["wh", "\u{1F32C}\uFE0F Wim Hof: 3 rundy (siedz\u0105c / le\u017C\u0105c)", "wake+10", 15], ["sun", "\u2600\uFE0F Dw\u00F3r + \u015Bwiat\u0142o dzienne (reset zegara)", "wake+30", 30], ["mid", "\u{1F527} Praca \u015Brednia: SkupOS", "wake+75", 60], ["train", "\u{1F3CB}\uFE0F Trening (l\u017Cejszy)", "16:15", 60], ["kar", "\u2764\uFE0F Wiecz\u00F3r z Karolin\u0105 \u2014 telefon odlo\u017Cony", "19:00", 120]]
+  PoNocce: [["wh", "\u{1F32C}\uFE0F Wim Hof: 3 rundy (siedz\u0105c / le\u017C\u0105c)", "wake+10", 15], ["sun", "\u2600\uFE0F Dw\u00F3r + \u015Bwiat\u0142o dzienne (reset zegara)", "wake+30", 20], ["tradeS", "\u{1F4C8} Sesja tradingowa NY (XAUUSD) \u2014 tylko setupy z planu", "14:30", 120], ["train", "\u{1F3CB}\uFE0F Trening (l\u017Cejszy)", "16:45", 60], ["sk2", "\u{1F527} SkupOS: praca \u015Brednia", "17:55", 60], ["kar", "\u2764\uFE0F Wiecz\u00F3r z Karolin\u0105 \u2014 telefon odlo\u017Cony", "19:00", 120], ["learn", "\u{1F4D3} Dziennik tradingowy + plan na jutro", "21:05", 40]]
 };
 const PHASE_FROM = { trade: "2026-12-05", learn: "2026-12-05" }; // nawyki dokładane stopniowo
 const DEEP_BONUS = (k) => (k >= "2026-12-05" ? 15 : 0);
@@ -1969,7 +1970,7 @@ function dayItems(events, tasks, k, daily) {
   const bo = ((daily || lsJSON("mp_daily_v4", {}))[k] || {}).bo || {};
   const shPrev = dayShift(events, addDays(k, -1)), shNext = dayShift(events, addDays(k, 1));
   if (!(bo.prep === "skip")) {
-    if (sh === "Wolne" && shNext === "Ranka") out.push({ kind: "block", t0: hm2m(bo.prep && bo.prep.at || "17:00"), t1: hm2m(bo.prep && bo.prep.at || "17:00") + 75, title: "\u{1F373} Meal prep na 3 dni: mi\u0119so/ryba + warzywa do pude\u0142ek (75 min)", bid: "prep" });
+    if (sh === "Wolne" && shNext === "Ranka") out.push({ kind: "block", t0: hm2m(bo.prep && bo.prep.at || "17:45"), t1: hm2m(bo.prep && bo.prep.at || "17:45") + 75, title: "\u{1F373} Meal prep na 3 dni: mi\u0119so/ryba + warzywa do pude\u0142ek (75 min)", bid: "prep" });
     if (sh === "Popo\u0142udnie" && shPrev === "Ranka") out.push({ kind: "block", t0: hm2m(bo.prep && bo.prep.at || "12:05"), t1: hm2m(bo.prep && bo.prep.at || "12:05") + (bo.prep && +bo.prep.min || 60), title: `\u{1F373} Meal prep na 3 dni (${bo.prep && +bo.prep.min || 60} min)`, bid: "prep" });
   }
   // Główny raport dnia (28.11.2026): ostatnie zadanie przed rutyną wieczorną; godziny na :15/:45 (wtedy chodzi zaplanowane zadanie).
@@ -1994,6 +1995,7 @@ function dayItems(events, tasks, k, daily) {
     const o = bo[id];
     if (o === "skip" || o && o.skip) return;
     if (PHASE_FROM[id] && k < PHASE_FROM[id] && !(o && o.at)) return;
+    if (id === "sk2" && sh === "Wolne" && shNext === "Ranka" && !(bo.prep === "skip") && !(o && o.at)) return; // dzień przed ranką: w tym oknie meal prep
     if (id === "deep") min += DEEP_BONUS(k);
     if (id === "conf") {
       const c = confOf(k);
@@ -2003,6 +2005,7 @@ function dayItems(events, tasks, k, daily) {
     if (o && o.title) title = o.title;
     let t0 = o && o.at ? hm2m(o.at) : blockStart(st, sp);
     if (t0 == null) return;
+    if (repT0 != null && !par && !(o && o.at) && t0 >= repT0) return;
     if (o && o.min) min = +o.min;
     if (wDelay && !(o && o.at) && /^wake/.test(st)) {
       if (id === "deep") {
