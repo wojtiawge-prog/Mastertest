@@ -426,13 +426,13 @@ const sync = {
     this.set("login");
   },
   // zastosuj wersję z chmury lokalnie (i zapamiętaj ją jako bazę dla kolejnych zmian)
-  applyRemote(k, value, ts) {
+  applyRemote(k, value, ts, localUsed) {
     const json = JSON.stringify(value);
     lsSet(k, json);
     lsSet(BASE_KEY(k), json);
     this.meta[k] = { ts, h: hashStr(json), base: ts };
     this.dirty.delete(k);
-    if (this.onRemote) this.onRemote(k, value);
+    if (this.onRemote) this.onRemote(k, value, localUsed);
   },
   baseVal(k) {
     try { const r = lsGet(BASE_KEY(k)); return r == null ? undefined : JSON.parse(r); } catch { return undefined; }
@@ -453,9 +453,9 @@ const sync = {
         if (ts === m.base) { if (m.h !== hashStr(JSON.stringify(this.baseVal(k)))) this.dirty.add(k); continue; }
         // chmura zmieniła się od naszej bazy
         const local = JSON.parse(raw), bv = this.baseVal(k);
-        if (bv !== undefined && _eq(local, bv)) { this.applyRemote(k, r.value, ts); continue; }
+        if (bv !== undefined && _eq(local, bv)) { this.applyRemote(k, r.value, ts, local); continue; }
         const merged = merge3(bv, local, r.value);
-        this.applyRemote(k, merged, ts); // lokalnie połączone, baza = wersja z chmury
+        this.applyRemote(k, merged, ts, local); // lokalnie połączone, baza = wersja z chmury
         if (!_eq(merged, r.value)) { this.meta[k].h = "x"; this.dirty.add(k); } // do wysłania połączona wersja
       }
       SYNC_KEYS.forEach((k) => {
@@ -504,7 +504,7 @@ const sync = {
           let curL = val;
           try { const cr = lsGet(k); if (cr != null) curL = JSON.parse(cr); } catch { }
           const merged = merge3(this.baseVal(k), curL, r.value);
-          this.applyRemote(k, merged, Number(r.ts) || 0);
+          this.applyRemote(k, merged, Number(r.ts) || 0, curL);
           if (_eq(merged, r.value)) break;
           this.meta[k].h = "x";
         }
@@ -1473,7 +1473,14 @@ export default function App() {
         if (!ready)
             return;
         const map = { mp_profile_v1: setProfile, mp_habits_v1: setHabits, mp_supps_v1: setSupps, mp_daily_v4: setDaily, mp_tasks_v1: setTasks, mp_finance_v1: setFinance, mp_events_v1: setEvents, mp_diet_v1: (v) => setDiet({ ...SEED_DIET, ...v }), mp_shopping_v1: setShopping, mp_saas_v1: setSaasData, mp_measures_v1: setMeasures, mp_books_v1: setBooks, mp_prs_v1: setPrs, mp_review_v1: setWeekFocus, mp_medi_v1: setMedi, mp_voice_v1: setVoiceLog, mp_blood_v1: setBloodLog, mp_charisma_v1: setCharisma, mp_journal_v1: setJournal, mp_bizplan_v1: setBizplan, mp_trades_v1: (v) => setTrades({ ...SEED_TRADES, ...v }), mp_rest_v1: (v) => restStore.replace(v), mp_gate_v1: (v) => gateStore.replace(v), mp_fav_v1: (v) => favStore.replace(v), mp_goal_v1: (v) => goalStore.replace(v), mp_hub_v1: (v) => hubStore.replace(v), mp_alarms_v1: (v) => setAlarms(v), mp_dgrep_v1: (v) => repStore.replace(v), mp_selfrep_v1: (v) => selfStore.replace(v) };
-        sync.onRemote = (k, v) => { if (v != null && map[k]) map[k](v); };
+        // Wyścig (28.11.2026): pull czyta localStorage, a w tym czasie użytkownik odhacza serię — stan Reacta jest już nowszy niż to, co poszło do łączenia.
+        // Dla danych klikanych na bieżąco łączymy zmianę z chmury z AKTUALNYM stanem ekranu (merge3), zamiast go nadpisywać.
+        const LIVE = { mp_daily_v4: setDaily, mp_tasks_v1: setTasks, mp_habits_v1: setHabits, mp_supps_v1: setSupps };
+        sync.onRemote = (k, v, localUsed) => {
+          if (v == null || !map[k]) return;
+          if (LIVE[k] && localUsed !== undefined) { LIVE[k]((prev) => (_eq(prev, localUsed) ? v : merge3(localUsed, prev, v))); return; }
+          map[k](v);
+        };
         sync.init();
     }, [ready]);
     const resetStats = () => {
@@ -2850,7 +2857,11 @@ function Train({ day, setDay, daily, timer, setTimer, startTimer, prs, setPrs })
     const totalSets = workout.ex.reduce((a, e) => a + e.s, 0);
     const doneSets = workout.ex.reduce((a, e) => a + (sets[e.id] || []).filter(Boolean).length, 0);
     const pct = totalSets ? Math.round((doneSets / totalSets) * 100) : 0;
+    const lastSetTap = useRef({ k: "", t: 0 });
     const toggleSet = (ex, idx) => {
+        const now = Date.now(), tk2 = ex.id + ":" + idx;
+        if (lastSetTap.current.k === tk2 && now - lastSetTap.current.t < 400) return; // jedno tapnięcie odpalone dwa razy
+        lastSetTap.current = { k: tk2, t: now };
         buzz(8);
         setDay((c) => {
             const cs = { ...(c.sets || {}) };
