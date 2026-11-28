@@ -1937,15 +1937,20 @@ function dayItems(events, tasks, k, daily) {
   if (SHIFT_WIN[sh]) out.push({ kind: "shift", t0: SHIFT_WIN[sh][0], t1: SHIFT_WIN[sh][1], title: SHIFT_LBL[sh], hard: true });
   if (dayShift(events, addDays(k, -1)) === "Nocka") out.push({ kind: "shift", t0: 0, t1: 450, title: "Nocka (cd.) \xB7 do 7:00, powr\xF3t ~7:30", hard: true });
   const sp = sleepPlan(events, k, null, daily);
+  // Faktyczna pobudka z dziennika snu (Dieta → Plan): plan przelicza się od niej. Spóźnienie zjada deep work (min 20 min), sen się nie przesuwa.
+  const mpl0 = ((daily || lsJSON("mp_daily_v4", {}))[k] || {}).mplan || {};
+  const actWake = mpl0.logSaved ? hm2m(mpl0.wake) : null;
+  const wDelay = actWake != null && sp.plannedWake != null && actWake > sp.plannedWake && actWake - sp.plannedWake < 600 ? actWake - sp.plannedWake : 0;
+  const W0 = sp.plannedWake + wDelay;
   if (sp.dayNap) out.push({ kind: "sleep", t0: sp.dayNap[0], t1: sp.dayNap[1], title: "\u{1F634} Sen po nocce", hard: false });
   if (sp.nap) out.push({ kind: "sleep", t0: sp.nap[0], t1: sp.nap[1], title: "\u{1F634} Drzemka przed nock\u0105", hard: false });
-  out.push({ kind: "rout", t0: sp.plannedWake, t1: sp.plannedWake + sp.mMin, title: `${sp.hard ? "\u{1F512} Wstajesz \u00B7 " : ""}\u2600\uFE0F Po wstaniu${sp.mShort ? " (szybki start)" : ""} \xB7 ${sp.mMin} min`, r: "m" });
+  out.push({ kind: "rout", t0: W0, t1: W0 + sp.mMin, title: `${wDelay ? `\u23F0 Wsta\u0142e\u015B ${m2hm(W0)} (+${wDelay} min po planie) \u00B7 ` : sp.hard ? "\u{1F512} Wstajesz \u00B7 " : ""}\u2600\uFE0F Po wstaniu${sp.mShort ? " (szybki start)" : ""} \xB7 ${sp.mMin} min`, r: "m" });
   if (sp.routine != null) out.push({ kind: "rout", t0: sp.routine, t1: sp.routine + ROUT_E_MIN, title: `\u{1F319} Przed snem \xB7 ${ROUT_E_MIN + sp.buf} min (ksi\u0105\u017Cka, prysznic, z\u0119by${sp.buf ? `, +${sp.buf} min na za\u015Bni\u0119cie` : ""})`, r: "e" });
   if (sp.bed != null) out.push({ kind: "bed", t0: sp.bed, t1: sp.bed, title: sp.hard ? "\u{1F512} Sen \u2014 nienegocjowalne" : "\u{1F6CF}\uFE0F Sen" });
   {
     // Posiłki (27.11.2026): 2–3 duże posiłki + koktajl, druga połowa dnia lekka.
     // Ranka: 2 w pracy + 1 po pracy (największy) + koktajl · Popołudnie: 2 rano, 1 w pracy · Nocka: 2 przed, lekko w pracy.
-    const W = sp.plannedWake;
+    const W = W0;
     let M;
     // Przerwy w pracy: krótka 1,5 h po starcie (15 min), długa ~4 h po starcie (35 min), krótka 1,5 h przed końcem (15 min).
     if (sh === "Ranka") M = [["m1", "\u{1F34C} Przek\u0105ska \u2014 kr\u00F3tka przerwa (owoc + orzechy / skyr)", 510, 10], ["m2", "\u{1F371} Posi\u0142ek w pracy \u2014 d\u0142uga przerwa, na spokojnie", 660, 35], ["m3", "\u{1F95A} Przek\u0105ska \u2014 kr\u00F3tka przerwa (jajka / ser / jerky)", 810, 10], ["m4", "\u{1F969} Obiad po pracy \u2014 najwi\u0119kszy", 945, 25], ["m5", "\u{1F964} Koktajl", 1145, 5]];
@@ -1984,6 +1989,7 @@ function dayItems(events, tasks, k, daily) {
     out.push({ kind: "block", t0, t1: t0 + 15, title: "\u{1F371} Spakuj na jutro: pude\u0142ko na d\u0142ug\u0105 przerw\u0119 + 2 przek\u0105ski (15 min)", bid: "pack" });
   }
   const planKey = sh === "Nocka" && shPrev === "Nocka" ? "Nocka2" : sh === "Wolne" && shPrev === "Nocka" ? "PoNocce" : sh;
+  let wSpill = 0;
   (BLOCK_PLAN[planKey] || []).forEach(([id, title, st, min, par]) => {
     const o = bo[id];
     if (o === "skip" || o && o.skip) return;
@@ -1995,9 +2001,17 @@ function dayItems(events, tasks, k, daily) {
       min = Math.max(5, c.m + 3);
     }
     if (o && o.title) title = o.title;
-    const t0 = o && o.at ? hm2m(o.at) : blockStart(st, sp);
+    let t0 = o && o.at ? hm2m(o.at) : blockStart(st, sp);
     if (t0 == null) return;
     if (o && o.min) min = +o.min;
+    if (wDelay && !(o && o.at) && /^wake/.test(st)) {
+      if (id === "deep") {
+        const end0 = t0 + min, s1 = t0 + wDelay, m1 = Math.max(20, end0 - s1);
+        if (m1 < min) title = `${title} \u2702\uFE0F \u2212${min - m1} min za p\u00F3\u017An\u0105 pobudk\u0119`;
+        wSpill = s1 + m1 - end0; t0 = s1; min = m1;
+      } else if (id === "wh") t0 += wDelay;
+      else if (wSpill) { t0 += wSpill; min = Math.max(15, min - wSpill); }
+    }
     if (id === "kar" && repT0 != null && t0 < repT0 && t0 + min > repT0) min = repT0 - t0;
     out.push({ kind: "block", t0, t1: t0 + min, title: `${title} (${min} min)`, bid: id, moved: !!(o && o.at), par: !!par });
   });
@@ -2078,7 +2092,8 @@ function DayAgendaCard({ events, setEvents, tasks, setTasks, day, setDay, setTab
     buzz(12);
   };
   const hNow = (/* @__PURE__ */ new Date()).getHours();
-  const tSl = ((daily || {})[todayKey()] || {}).sl || {};
+  const tSl0 = ((daily || {})[todayKey()] || {});
+  const tSl = { ...tSl0.sl || {}, ...(tSl0.sl || {}).wake == null && tSl0.mplan && tSl0.mplan.logSaved && hm2m(tSl0.mplan.wake) != null ? { wake: hm2m(tSl0.mplan.wake) } : {} };
   const eSl = ((daily || {})[ek] || {}).sl || {};
   useEffect(() => {
     if (!setDayFor || !daily) return;
