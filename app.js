@@ -1965,7 +1965,7 @@ function dayItems(events, tasks, k, daily) {
   const shPrev = dayShift(events, addDays(k, -1)), shNext = dayShift(events, addDays(k, 1));
   if (!(bo.prep === "skip")) {
     if (sh === "Wolne" && shNext === "Ranka") out.push({ kind: "block", t0: hm2m(bo.prep && bo.prep.at || "17:00"), t1: hm2m(bo.prep && bo.prep.at || "17:00") + 75, title: "\u{1F373} Meal prep na 3 dni: mi\u0119so/ryba + warzywa do pude\u0142ek (75 min)", bid: "prep" });
-    if (sh === "Popo\u0142udnie" && shPrev === "Ranka") out.push({ kind: "block", t0: hm2m(bo.prep && bo.prep.at || "12:05"), t1: hm2m(bo.prep && bo.prep.at || "12:05") + 60, title: "\u{1F373} Meal prep na 3 dni (60 min)", bid: "prep" });
+    if (sh === "Popo\u0142udnie" && shPrev === "Ranka") out.push({ kind: "block", t0: hm2m(bo.prep && bo.prep.at || "12:05"), t1: hm2m(bo.prep && bo.prep.at || "12:05") + (bo.prep && +bo.prep.min || 60), title: `\u{1F373} Meal prep na 3 dni (${bo.prep && +bo.prep.min || 60} min)`, bid: "prep" });
   }
   // Główny raport dnia (28.11.2026): ostatnie zadanie przed rutyną wieczorną; godziny na :15/:45 (wtedy chodzi zaplanowane zadanie).
   let repT0 = null;
@@ -2012,7 +2012,7 @@ function dayItems(events, tasks, k, daily) {
   out.sort((a, b) => a.t0 - b.t0);
   const afterR = (a) => sp.routine != null && !a.par && !a.done && !(a.task && a.task.done) && (a.kind === "task" || a.kind === "block") && a.t0 >= sp.routine && a.t0 < sp.routine + 600;
   out.forEach((a) => {
-    a.conf = out.filter((b) => b !== a && b.kind !== "bed" && a.kind !== "bed" && b.kind !== "meal" && a.kind !== "meal" && !(a.kind === "rout" && b.kind === "rout") && (a.hard || b.hard || a.kind === "sleep" || b.kind === "sleep") && !(a.kind === "block" && b.kind === "block") && !(a.kind === "block" && b.kind === "task" || a.kind === "task" && b.kind === "block") && !(a.par && (b.kind === "shift" || b.kind === "event" || b.kind === "block") || b.par && (a.kind === "shift" || a.kind === "event" || a.kind === "block")) && a.t0 < b.t1 && b.t0 < a.t1).map((b) => b.title);
+    a.conf = out.filter((b) => b !== a && b.kind !== "bed" && a.kind !== "bed" && b.kind !== "meal" && a.kind !== "meal" && !(a.kind === "rout" && b.kind === "rout") && (a.hard || b.hard || a.kind === "sleep" || b.kind === "sleep" || (a.kind === "block" && b.kind === "task") || (a.kind === "task" && b.kind === "block") || (a.kind === "task" && b.kind === "task")) && !(a.kind === "block" && b.kind === "block") && !(a.par && (b.kind === "shift" || b.kind === "event" || b.kind === "block") || b.par && (a.kind === "shift" || a.kind === "event" || a.kind === "block")) && a.t0 < b.t1 && b.t0 < a.t1).map((b) => b.title);
     if (afterR(a)) a.conf.push("\u{1F319} Rutyna wieczorna = ostatni etap dnia. Przenie\u015B to PRZED rutyn\u0119");
   });
   return out;
